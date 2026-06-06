@@ -1,6 +1,6 @@
 # Fluent UI — Documentação Completa
 
-Biblioteca de interface gráfica para scripts Roblox. Oferece janelas, abas, elementos interativos e temas visuais.
+Biblioteca de interface gráfica para scripts Roblox.
 
 ---
 
@@ -30,8 +30,6 @@ Biblioteca de interface gráfica para scripts Roblox. Oferece janelas, abas, ele
 
 ## 1. Inicialização
 
-Cole o código-fonte da biblioteca no topo do seu script. Após isso, `Fluent` (ou `Library`) estará disponível globalmente.
-
 ```lua
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lucasggk/Library/refs/heads/main/Library.lua"))()
 ```
@@ -42,26 +40,24 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lucas
 
 ```lua
 local Window = Library:CreateWindow({
-    Title          = "Meu Script",       -- Título principal (obrigatório)
-    SubTitle       = "v1.0",             -- Subtítulo (opcional)
-    Theme          = "Dark",             -- Tema inicial (ver lista abaixo)
-    Acrylic        = false,              -- Efeito de vidro fosco (true/false)
-    TabWidth       = 150,                -- Largura da barra de abas (padrão: 150)
-    Size           = UDim2.fromOffset(600, 480), -- Tamanho da janela
-    MinimizeKey    = Enum.KeyCode.LeftControl,   -- Tecla para minimizar
-    BackgroundImage = "",                -- URL de imagem de fundo (opcional)
-    BackgroundTransparency = 0.5,        -- Transparência do fundo (0–1)
-    Icon           = "",                 -- Ícone rbxassetid (opcional)
-    Image          = "",                 -- Imagem no topo da aba (opcional)
-    Search         = true,               -- Barra de busca de elementos (padrão: true)
-    DropdownsOutsideWindow = false,      -- Dropdowns fora da janela (padrão: false)
-
-    -- Informações do usuário no painel lateral (todos opcionais)
-    UserInfo          = true,
-    UserInfoTitle     = "Player Name",
-    UserInfoSubtitle  = "VIP",
-    UserInfoSubtitleColor = Color3.fromRGB(255, 200, 0),
-    UserInfoTop       = false,           -- Exibir no topo (true) ou rodapé (false)
+    Title                  = "Meu Script",
+    SubTitle               = "v1.0",
+    Theme                  = "Dark",
+    Acrylic                = false,
+    TabWidth               = 150,
+    Size                   = UDim2.fromOffset(600, 480),
+    MinimizeKey            = Enum.KeyCode.LeftControl,
+    BackgroundImage        = "",
+    BackgroundTransparency = 0.5,
+    Icon                   = "",
+    Image                  = "",
+    Search                 = true,
+    DropdownsOutsideWindow = false,
+    UserInfo               = true,
+    UserInfoTitle          = "Player Name",
+    UserInfoSubtitle       = "VIP",
+    UserInfoSubtitleColor  = Color3.fromRGB(255, 200, 0),
+    UserInfoTop            = false,
 })
 ```
 
@@ -69,29 +65,27 @@ local Window = Library:CreateWindow({
 
 ## 3. Temas Disponíveis
 
-Passe qualquer um desses nomes no campo `Theme` ou em `Library:SetTheme()`:
-
-| Nome       | Descrição                 |
-|------------|---------------------------|
-| `Dark`     | Cinza escuro clássico      |
-| `Darker`   | Ainda mais escuro          |
-| `AMOLED`   | Preto puro                 |
-| `Light`    | Fundo branco               |
-| `Balloon`  | Tons de azul claro         |
-| `SoftCream`| Tons creme/bege            |
-| `Aqua`     | Verde-azulado              |
-| `Amethyst` | Roxo                       |
-| `Rose`     | Rosa/vermelho              |
-| `Midnight` | Azul meia-noite            |
-| `Forest`   | Verde floresta             |
-| `Sunset`   | Laranja/pôr do sol         |
-| `Ocean`    | Azul oceano                |
-| `Emerald`  | Verde esmeralda            |
-| `Sapphire` | Azul safira                |
-| `Cloud`    | Azul petróleo              |
-| `Grape`    | Preto com roxo             |
-| `Bloody`   | Vermelho sangue            |
-| `Arctic`   | Azul gelo                  |
+| Nome        | Descrição               |
+|-------------|-------------------------|
+| `Dark`      | Cinza escuro clássico   |
+| `Darker`    | Ainda mais escuro       |
+| `AMOLED`    | Preto puro              |
+| `Light`     | Fundo branco            |
+| `Balloon`   | Tons de azul claro      |
+| `SoftCream` | Tons creme/bege         |
+| `Aqua`      | Verde-azulado           |
+| `Amethyst`  | Roxo                    |
+| `Rose`      | Rosa/vermelho           |
+| `Midnight`  | Azul meia-noite         |
+| `Forest`    | Verde floresta          |
+| `Sunset`    | Laranja/pôr do sol      |
+| `Ocean`     | Azul oceano             |
+| `Emerald`   | Verde esmeralda         |
+| `Sapphire`  | Azul safira             |
+| `Cloud`     | Azul petróleo           |
+| `Grape`     | Preto com roxo          |
+| `Bloody`    | Vermelho sangue         |
+| `Arctic`    | Azul gelo               |
 
 ```lua
 Library:SetTheme("Midnight")
@@ -101,29 +95,18 @@ Library:SetTheme("Midnight")
 
 ## 4. Abas e Sub-abas
 
-### Aba principal
-
 ```lua
 local MinhaAba = Window:AddTab({
     Title = "Combat",
-    Icon  = "",  -- rbxassetid (opcional)
+    Icon  = "",
 })
-```
 
-### Navegar para uma aba
+Window:SetTab("Combat")
+Window:SetTab(1)
 
-```lua
-Window:SetTab("Combat")   -- por nome
-Window:SetTab(1)          -- por índice
-```
-
-### Sub-abas (dentro de uma aba)
-
-```lua
 local SubA = MinhaAba:AddSubTab("ESP")
 local SubB = MinhaAba:AddSubTab("Chams")
 
--- Adicionar seção dentro de uma sub-aba:
 local Secao = SubA:AddSection("Configurações de ESP")
 ```
 
@@ -131,21 +114,9 @@ local Secao = SubA:AddSection("Configurações de ESP")
 
 ## 5. Seções
 
-Seções organizam os elementos visualmente dentro de uma aba.
-
 ```lua
 local MinhaSecao = MinhaAba:AddSection("Título da Seção")
-
--- Seção com ícone:
 local SecaoComIcone = MinhaAba:AddSection("Players", "rbxassetid://...")
-```
-
-Todos os elementos são adicionados **dentro de uma seção**:
-
-```lua
-MinhaSecao:AddToggle(...)
-MinhaSecao:AddSlider(...)
--- etc.
 ```
 
 ---
@@ -154,27 +125,21 @@ MinhaSecao:AddSlider(...)
 
 ### Toggle
 
-Botão liga/desliga.
-
 ```lua
 local MeuToggle = MinhaSecao:AddToggle("IdUnico", {
     Title       = "Aimbot",
     Description = "Descrição opcional",
-    Default     = false,               -- Estado inicial
+    Default     = false,
     Callback    = function(Value)
-        print("Toggle:", Value)        -- Value = true ou false
+        print("Toggle:", Value)
     end,
 })
 
--- Escutar mudanças:
 MeuToggle:OnChanged(function(Value)
     print("Mudou para:", Value)
 end)
 
--- Alterar valor por código:
 MeuToggle:SetValue(true)
-
--- Ler valor atual:
 print(Library.Options["IdUnico"].Value)
 ```
 
@@ -182,16 +147,14 @@ print(Library.Options["IdUnico"].Value)
 
 ### Slider
 
-Controle deslizante numérico.
-
 ```lua
 local MeuSlider = MinhaSecao:AddSlider("IdUnico", {
     Title       = "Walk Speed",
     Description = "Velocidade do personagem",
-    Min         = 16,       -- Valor mínimo (obrigatório)
-    Max         = 500,      -- Valor máximo (obrigatório)
-    Default     = 16,       -- Valor inicial (obrigatório)
-    Rounding    = 0,        -- Casas decimais (0 = inteiro) (obrigatório)
+    Min         = 16,
+    Max         = 500,
+    Default     = 16,
+    Rounding    = 0,
     Callback    = function(Value)
         game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
     end,
@@ -206,14 +169,11 @@ print(Library.Options["IdUnico"].Value)
 
 ### Button
 
-Botão clicável.
-
 ```lua
 MinhaSecao:AddButton({
     Title       = "Teleportar",
     Description = "Vai ao spawn",
     Callback    = function()
-        -- código ao clicar
         Library:Notify({ Title = "OK", Content = "Teleportado!", Duration = 3 })
     end,
 })
@@ -223,31 +183,26 @@ MinhaSecao:AddButton({
 
 ### Dropdown
 
-Menu de seleção (single ou multi).
-
 ```lua
--- Seleção simples:
 local MeuDrop = MinhaSecao:AddDropdown("IdUnico", {
     Title       = "Target Part",
     Description = "Parte para mirar",
     Values      = { "Head", "Torso", "HumanoidRootPart" },
     Default     = "Head",
     Multi       = false,
-    Search      = true,    -- Barra de busca interna (padrão: true)
-    AllowNull   = false,   -- Permite deselecionar tudo
+    Search      = true,
+    AllowNull   = false,
     Callback    = function(Value)
         print("Selecionado:", Value)
     end,
 })
 
--- Seleção múltipla:
 local MultiDrop = MinhaSecao:AddDropdown("IdMulti", {
     Title    = "Partes",
     Values   = { "Head", "Torso", "LeftArm", "RightArm" },
     Default  = { "Head", "Torso" },
     Multi    = true,
     Callback = function(Value)
-        -- Value é uma tabela: { Head = true, Torso = true }
         for parte, ativo in pairs(Value) do
             print(parte, ativo)
         end
@@ -256,7 +211,7 @@ local MultiDrop = MinhaSecao:AddDropdown("IdMulti", {
 
 MeuDrop:OnChanged(function(Value) end)
 MeuDrop:SetValue("Torso")
-MeuDrop:SetValues({ "Head", "Torso", "LeftLeg" })  -- Recarrega a lista
+MeuDrop:SetValues({ "Head", "Torso", "LeftLeg" })
 print(Library.Options["IdUnico"].Value)
 ```
 
@@ -264,29 +219,22 @@ print(Library.Options["IdUnico"].Value)
 
 ### Keybind
 
-Captura de tecla.
-
 ```lua
 local MeuBind = MinhaSecao:AddKeybind("IdUnico", {
     Title           = "Aimbot Key",
     Description     = "Tecla para ativar",
-    Default         = "Q",          -- Nome da tecla (string)
-    Mode            = "Toggle",     -- "Toggle", "Hold" ou "Always"
-    Callback        = function(Value)
-        -- Chamado quando a tecla é pressionada (Toggle: passa o estado bool)
-    end,
+    Default         = "Q",
+    Mode            = "Toggle",
+    Callback        = function(Value) end,
     ChangedCallback = function(NewKey)
         print("Nova tecla:", NewKey)
     end,
 })
 
 MeuBind:OnChanged(function(Key) end)
-MeuBind:SetValue("E", "Hold")  -- (tecla, modo)
+MeuBind:SetValue("E", "Hold")
 
--- Verificar estado atual:
-if Library.Options["IdUnico"]:GetState() then
-    -- Ativo
-end
+if Library.Options["IdUnico"]:GetState() then end
 ```
 
 **Modos:**
@@ -298,36 +246,28 @@ end
 
 ### Colorpicker
 
-Seletor de cor com suporte a transparência.
-
 ```lua
 local MeuColor = MinhaSecao:AddColorpicker("IdUnico", {
     Title        = "Cor do ESP",
     Description  = "Escolha a cor",
     Default      = Color3.fromRGB(255, 0, 0),
-    Transparency = false,  -- true = habilita canal alpha
+    Transparency = false,
     Callback     = function(Color)
         print("Cor:", Color)
     end,
 })
 
 MeuColor:OnChanged(function(Color) end)
-
--- Definir por HSV:
-MeuColor:SetValue({ 0, 1, 1 }, 0)  -- { H, S, V }, Transparência
-
--- Definir por RGB:
+MeuColor:SetValue({ 0, 1, 1 }, 0)
 MeuColor:SetValueRGB(Color3.fromRGB(0, 255, 100), 0.5)
 
-print(Library.Options["IdUnico"].Value)      -- Color3
-print(Library.Options["IdUnico"].Transparency) -- número 0–1
+print(Library.Options["IdUnico"].Value)
+print(Library.Options["IdUnico"].Transparency)
 ```
 
 ---
 
 ### Input
-
-Campo de texto livre.
 
 ```lua
 local MeuInput = MinhaSecao:AddInput("IdUnico", {
@@ -335,9 +275,9 @@ local MeuInput = MinhaSecao:AddInput("IdUnico", {
     Description = "Nome do alvo",
     Default     = "",
     Placeholder = "Digite aqui...",
-    Numeric     = false,   -- true = aceita apenas números
-    Finished    = false,   -- true = callback só ao pressionar Enter
-    MaxLength   = 50,      -- Limite de caracteres (opcional)
+    Numeric     = false,
+    Finished    = false,
+    MaxLength   = 50,
     Callback    = function(Value)
         print("Texto:", Value)
     end,
@@ -352,18 +292,12 @@ print(Library.Options["IdUnico"].Value)
 
 ### Paragraph
 
-Texto informativo somente leitura.
-
 ```lua
 MinhaSecao:AddParagraph({
     Title   = "Informações",
     Content = "Versão 1.0 | Discord: meuhub.gg\nSuporte a múltiplas linhas.",
 })
-```
 
-Suporte a MiniMessage (formatação de texto):
-
-```lua
 MinhaSecao:AddParagraph({
     Title   = "Colorido",
     Content = "<red>Vermelho</red> | <green>Verde</green> | <gradient:#FF0000:#0000FF>Gradiente</gradient>",
@@ -374,17 +308,14 @@ MinhaSecao:AddParagraph({
 
 ## 7. Notificações
 
-Popups no canto inferior direito da tela.
-
 ```lua
 Library:Notify({
     Title      = "Título",
     Content    = "Mensagem principal",
-    SubContent = "Detalhe adicional (opcional)",
-    Duration   = 5,  -- Segundos (nil = não fecha automaticamente)
+    SubContent = "Detalhe adicional",
+    Duration   = 5,
 })
 
--- Fechar manualmente:
 local Notif = Library:Notify({ Title = "...", Content = "..." })
 Notif:Close()
 ```
@@ -393,48 +324,35 @@ Notif:Close()
 
 ## 8. Minimizador
 
-Botão flutuante para minimizar/restaurar a janela.
-
 ```lua
 Library:CreateMinimizer({
-    Draggable    = true,                          -- Pode arrastar o botão
-    Icon         = "rbxassetid://...",            -- Ícone (opcional)
-    Size         = UDim2.fromOffset(36, 36),      -- Tamanho
-    Position     = UDim2.new(0, 300, 0, 20),      -- Posição inicial
-    Acrylic      = false,                         -- Efeito acrílico
-    Transparency = 0,                             -- Transparência do fundo
-    Corner       = 14,                            -- Raio dos cantos
-    Visible      = true,                          -- Visível ao criar
+    Draggable    = true,
+    Icon         = "rbxassetid://...",
+    Size         = UDim2.fromOffset(36, 36),
+    Position     = UDim2.new(0, 300, 0, 20),
+    Acrylic      = false,
+    Transparency = 0,
+    Corner       = 14,
+    Visible      = true,
 })
 ```
-
-A tecla configurada em `MinimizeKey` também minimiza a janela.
 
 ---
 
 ## 9. SaveManager
 
-Sistema de salvar e carregar configurações automaticamente em arquivo JSON.
-
 ```lua
--- Salvar manualmente:
 local ok, err = Library.SaveManager:Save()
 if not ok then print("Erro ao salvar:", err) end
 
--- Carregar manualmente:
 local ok, err = Library.SaveManager:Load()
 
--- Auto-save (salva sozinho quando qualquer opção muda):
--- Ative passando SaveManager = true na aba desejada:
 local SettingsTab = Window:AddTab({
     Title       = "Settings",
-    SaveManager = true,   -- ativa o auto-save
+    SaveManager = true,
 })
 
--- Ignorar um elemento específico do save:
 Library.SaveManager.Ignore["IdUnico"] = true
-
--- Mudar a pasta de saves (padrão: "FluentSettings"):
 Library.SaveManager.Folder = "MeuScript"
 ```
 
@@ -445,25 +363,14 @@ O arquivo é salvo em `FluentSettings/<Título da Janela>.json`.
 ## 10. Métodos da Library
 
 ```lua
--- Alterar tema:
 Library:SetTheme("Arctic")
-
--- Destruir a interface completamente:
 Library:Destroy()
-
--- Ativar/desativar blur do jogo:
 Library:ToggleBlur(true)
-
--- Ativar/desativar transparência do painel:
 Library:ToggleTransparency(true)
-
--- Ajustar transparência da janela (0–3, só com Acrylic = true):
 Library:SetWindowTransparency(1.5)
 
--- Acessar qualquer opção pelo ID:
 local valor = Library.Options["IdUnico"].Value
 
--- Verificar se a interface foi destruída:
 if Library.Unloaded then return end
 ```
 
@@ -472,13 +379,8 @@ if Library.Unloaded then return end
 ## 11. Exemplo Completo
 
 ```lua
--- ============================================================
---  EXEMPLO COMPLETO — Fluent UI
--- ============================================================
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lucasggk/Library/refs/heads/main/Library.lua"))()
 
-local Library = Fluent  -- biblioteca já carregada
-
--- 1. Janela
 local Window = Library:CreateWindow({
     Title    = "My Hub",
     SubTitle = "v1.0",
@@ -489,49 +391,44 @@ local Window = Library:CreateWindow({
 
 Library:CreateMinimizer({ Draggable = true })
 
--- 2. Abas
-local CombatTab  = Window:AddTab({ Title = "Combat" })
-local VisualTab  = Window:AddTab({ Title = "Visual" })
+local CombatTab   = Window:AddTab({ Title = "Combat" })
+local VisualTab   = Window:AddTab({ Title = "Visual" })
 local SettingsTab = Window:AddTab({ Title = "Settings", SaveManager = true })
 
--- 3. Sub-abas
 local ESPSub   = VisualTab:AddSubTab("ESP")
 local ChamsSub = VisualTab:AddSubTab("Chams")
 
--- 4. Seções e elementos
-
--- Combat
 local AimSection = CombatTab:AddSection("Aimbot")
 
-local Aimbot = AimSection:AddToggle("Aimbot", {
+AimSection:AddToggle("Aimbot", {
     Title    = "Aimbot",
     Default  = false,
-    Callback = function(v)
-        -- lógica do aimbot
-    end,
+    Callback = function(v) end,
 })
 
 AimSection:AddSlider("AimFOV", {
     Title    = "FOV",
-    Min = 10, Max = 500, Default = 150, Rounding = 0,
+    Min      = 10,
+    Max      = 500,
+    Default  = 150,
+    Rounding = 0,
     Callback = function(v) end,
 })
 
 AimSection:AddDropdown("AimPart", {
-    Title   = "Target Part",
-    Values  = { "Head", "Torso", "HumanoidRootPart" },
-    Default = "Head",
+    Title    = "Target Part",
+    Values   = { "Head", "Torso", "HumanoidRootPart" },
+    Default  = "Head",
     Callback = function(v) end,
 })
 
 AimSection:AddKeybind("AimKey", {
-    Title   = "Hold Key",
-    Default = "Q",
-    Mode    = "Hold",
+    Title    = "Hold Key",
+    Default  = "Q",
+    Mode     = "Hold",
     Callback = function(v) end,
 })
 
--- Visual > ESP
 local ESPSec = ESPSub:AddSection("ESP")
 
 ESPSec:AddToggle("ESPToggle", {
@@ -547,13 +444,12 @@ ESPSec:AddColorpicker("ESPColor", {
 })
 
 ESPSec:AddDropdown("ESPMode", {
-    Title   = "Mode",
-    Values  = { "Box", "Skeleton", "Dot" },
-    Default = "Box",
+    Title    = "Mode",
+    Values   = { "Box", "Skeleton", "Dot" },
+    Default  = "Box",
     Callback = function(v) end,
 })
 
--- Settings
 local SettSec = SettingsTab:AddSection("Appearance")
 
 SettSec:AddDropdown("Theme", {
@@ -574,8 +470,8 @@ SettSec:AddButton({
     Callback = function()
         local ok = Library.SaveManager:Save()
         Library:Notify({
-            Title   = "SaveManager",
-            Content = ok and "Config salva!" or "Erro ao salvar.",
+            Title    = "SaveManager",
+            Content  = ok and "Config salva!" or "Erro ao salvar.",
             Duration = 3,
         })
     end,
@@ -586,7 +482,6 @@ SettSec:AddParagraph({
     Content = "My Hub v1.0\nDiscord: discord.gg/myhub",
 })
 
--- 5. Notificação de boas-vindas
 Library:Notify({
     Title    = "My Hub",
     Content  = "Carregado com sucesso!",
@@ -598,7 +493,7 @@ Library:Notify({
 
 ## Notas Finais
 
-- **IDs dos elementos** devem ser únicos dentro da mesma sessão. São usados pelo `SaveManager` e por `Library.Options`.
+- **IDs dos elementos** devem ser únicos. São usados pelo `SaveManager` e por `Library.Options`.
 - **MiniMessage** é suportado em textos: `<red>texto</red>`, `<gradient:#FF0000:#00FF00>gradiente</gradient>`, `<b>negrito</b>`, `<i>itálico</i>`, `<u>sublinhado</u>`.
-- O `SaveManager` só funciona fora do Roblox Studio (usa `writefile`/`readfile` do executor).
-- Acrylic (`Acrylic = true`) adiciona efeito de profundidade mas pode impactar performance.
+- O `SaveManager` só funciona fora do Roblox Studio.
+- `Acrylic = true` adiciona efeito de profundidade mas pode impactar performance.
