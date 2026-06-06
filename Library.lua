@@ -7505,28 +7505,22 @@ function Library:CreateMinimizer(Config)
 	return holder
 end
 function Library:ToggleBlur(Value)
-	if not Library._BlurEffect then
-		Library._BlurEffect = Instance.new("BlurEffect")
-		Library._BlurEffect.Size = 10
-		Library._BlurEffect.Name = "FluentBlur"
-	end
-	if Value then
-		Library._BlurEffect.Parent = game:GetService("Lighting")
-		Library._BlurEffect.Enabled = true
-	else
-		Library._BlurEffect.Enabled = false
-		Library._BlurEffect.Parent = nil
-	end
-	if Acrylic then
-		if Value then
-			if Acrylic.Enable then
-				pcall(Acrylic.Enable)
-			end
-		else
-			if Acrylic.Disable then
-				pcall(Acrylic.Disable)
+	if not Library.Window then return end
+	local paint = Library.Window.AcrylicPaint
+	if not paint or not paint.Frame then return end
+	for _, child in ipairs(paint.Frame:GetChildren()) do
+		if child:IsA("Frame") or child:IsA("ImageLabel") then
+			if child.Name ~= "Background" then
+				child.Visible = Value
 			end
 		end
+	end
+	local bg = paint.Frame:FindFirstChild("Background")
+	if bg then
+		bg.BackgroundTransparency = Value and 0.45 or 0
+	end
+	if paint.Model then
+		paint.Model.Transparency = Value and 0.98 or 1
 	end
 end
 function Library:SetTheme(Value)
