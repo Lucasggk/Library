@@ -12,14 +12,6 @@ Biblioteca de interface gráfica para scripts Roblox.
 4. [Abas e Sub-abas](#4-abas-e-sub-abas)
 5. [Seções](#5-seções)
 6. [Elementos](#6-elementos)
-   - [Toggle](#toggle)
-   - [Slider](#slider)
-   - [Button](#button)
-   - [Dropdown](#dropdown)
-   - [Keybind](#keybind)
-   - [Colorpicker](#colorpicker)
-   - [Input](#input)
-   - [Paragraph](#paragraph)
 7. [Notificações](#7-notificações)
 8. [Minimizador](#8-minimizador)
 9. [SaveManager](#9-savemanager)
@@ -65,27 +57,27 @@ local Window = Library:CreateWindow({
 
 ## 3. Temas Disponíveis
 
-| Nome        | Descrição               |
-|-------------|-------------------------|
-| `Dark`      | Cinza escuro clássico   |
-| `Darker`    | Ainda mais escuro       |
-| `AMOLED`    | Preto puro              |
-| `Light`     | Fundo branco            |
-| `Balloon`   | Tons de azul claro      |
-| `SoftCream` | Tons creme/bege         |
-| `Aqua`      | Verde-azulado           |
-| `Amethyst`  | Roxo                    |
-| `Rose`      | Rosa/vermelho           |
-| `Midnight`  | Azul meia-noite         |
-| `Forest`    | Verde floresta          |
-| `Sunset`    | Laranja/pôr do sol      |
-| `Ocean`     | Azul oceano             |
-| `Emerald`   | Verde esmeralda         |
-| `Sapphire`  | Azul safira             |
-| `Cloud`     | Azul petróleo           |
-| `Grape`     | Preto com roxo          |
-| `Bloody`    | Vermelho sangue         |
-| `Arctic`    | Azul gelo               |
+| Nome        | Descrição             |
+|-------------|-----------------------|
+| `Dark`      | Cinza escuro clássico |
+| `Darker`    | Ainda mais escuro     |
+| `AMOLED`    | Preto puro            |
+| `Light`     | Fundo branco          |
+| `Balloon`   | Tons de azul claro    |
+| `SoftCream` | Tons creme/bege       |
+| `Aqua`      | Verde-azulado         |
+| `Amethyst`  | Roxo                  |
+| `Rose`      | Rosa/vermelho         |
+| `Midnight`  | Azul meia-noite       |
+| `Forest`    | Verde floresta        |
+| `Sunset`    | Laranja/pôr do sol    |
+| `Ocean`     | Azul oceano           |
+| `Emerald`   | Verde esmeralda       |
+| `Sapphire`  | Azul safira           |
+| `Cloud`     | Azul petróleo         |
+| `Grape`     | Preto com roxo        |
+| `Bloody`    | Vermelho sangue       |
+| `Arctic`    | Azul gelo             |
 
 ```lua
 Library:SetTheme("Midnight")
@@ -101,9 +93,11 @@ local MinhaAba = Window:AddTab({
     Icon  = "",
 })
 
+-- Navegar para uma aba pelo nome ou índice
 Window:SetTab("Combat")
 Window:SetTab(1)
 
+-- Sub-abas dentro de uma aba
 local SubA = MinhaAba:AddSubTab("ESP")
 local SubB = MinhaAba:AddSubTab("Chams")
 
@@ -126,7 +120,7 @@ local SecaoComIcone = MinhaAba:AddSection("Players", "rbxassetid://...")
 ### Toggle
 
 ```lua
-local MeuToggle = MinhaSecao:AddToggle("IdUnico", {
+local MeuToggle = MinhaSecao:AddToggle({
     Title       = "Aimbot",
     Description = "Descrição opcional",
     Default     = false,
@@ -140,7 +134,6 @@ MeuToggle:OnChanged(function(Value)
 end)
 
 MeuToggle:SetValue(true)
-print(Library.Options["IdUnico"].Value)
 ```
 
 ---
@@ -148,7 +141,7 @@ print(Library.Options["IdUnico"].Value)
 ### Slider
 
 ```lua
-local MeuSlider = MinhaSecao:AddSlider("IdUnico", {
+local MeuSlider = MinhaSecao:AddSlider({
     Title       = "Walk Speed",
     Description = "Velocidade do personagem",
     Min         = 16,
@@ -162,7 +155,6 @@ local MeuSlider = MinhaSecao:AddSlider("IdUnico", {
 
 MeuSlider:OnChanged(function(Value) end)
 MeuSlider:SetValue(100)
-print(Library.Options["IdUnico"].Value)
 ```
 
 ---
@@ -184,7 +176,7 @@ MinhaSecao:AddButton({
 ### Dropdown
 
 ```lua
-local MeuDrop = MinhaSecao:AddDropdown("IdUnico", {
+local MeuDrop = MinhaSecao:AddDropdown({
     Title       = "Target Part",
     Description = "Parte para mirar",
     Values      = { "Head", "Torso", "HumanoidRootPart" },
@@ -197,7 +189,8 @@ local MeuDrop = MinhaSecao:AddDropdown("IdUnico", {
     end,
 })
 
-local MultiDrop = MinhaSecao:AddDropdown("IdMulti", {
+-- Multi-seleção
+local MultiDrop = MinhaSecao:AddDropdown({
     Title    = "Partes",
     Values   = { "Head", "Torso", "LeftArm", "RightArm" },
     Default  = { "Head", "Torso" },
@@ -212,7 +205,6 @@ local MultiDrop = MinhaSecao:AddDropdown("IdMulti", {
 MeuDrop:OnChanged(function(Value) end)
 MeuDrop:SetValue("Torso")
 MeuDrop:SetValues({ "Head", "Torso", "LeftLeg" })
-print(Library.Options["IdUnico"].Value)
 ```
 
 ---
@@ -220,7 +212,7 @@ print(Library.Options["IdUnico"].Value)
 ### Keybind
 
 ```lua
-local MeuBind = MinhaSecao:AddKeybind("IdUnico", {
+local MeuBind = MinhaSecao:AddKeybind({
     Title           = "Aimbot Key",
     Description     = "Tecla para ativar",
     Default         = "Q",
@@ -233,21 +225,23 @@ local MeuBind = MinhaSecao:AddKeybind("IdUnico", {
 
 MeuBind:OnChanged(function(Key) end)
 MeuBind:SetValue("E", "Hold")
-
-if Library.Options["IdUnico"]:GetState() then end
+MeuBind:GetState()
 ```
 
-**Modos:**
-- `"Toggle"` — alterna entre ativo/inativo a cada pressionamento
-- `"Hold"` — ativo apenas enquanto a tecla está pressionada
-- `"Always"` — sempre ativo, ignora a tecla
+**Modos disponíveis:**
+
+| Modo       | Comportamento                                     |
+|------------|---------------------------------------------------|
+| `"Toggle"` | Alterna entre ativo/inativo a cada pressionamento |
+| `"Hold"`   | Ativo apenas enquanto a tecla está pressionada    |
+| `"Always"` | Sempre ativo, ignora a tecla                      |
 
 ---
 
 ### Colorpicker
 
 ```lua
-local MeuColor = MinhaSecao:AddColorpicker("IdUnico", {
+local MeuColor = MinhaSecao:AddColorpicker({
     Title        = "Cor do ESP",
     Description  = "Escolha a cor",
     Default      = Color3.fromRGB(255, 0, 0),
@@ -260,9 +254,6 @@ local MeuColor = MinhaSecao:AddColorpicker("IdUnico", {
 MeuColor:OnChanged(function(Color) end)
 MeuColor:SetValue({ 0, 1, 1 }, 0)
 MeuColor:SetValueRGB(Color3.fromRGB(0, 255, 100), 0.5)
-
-print(Library.Options["IdUnico"].Value)
-print(Library.Options["IdUnico"].Transparency)
 ```
 
 ---
@@ -270,7 +261,7 @@ print(Library.Options["IdUnico"].Transparency)
 ### Input
 
 ```lua
-local MeuInput = MinhaSecao:AddInput("IdUnico", {
+local MeuInput = MinhaSecao:AddInput({
     Title       = "Player Name",
     Description = "Nome do alvo",
     Default     = "",
@@ -285,7 +276,6 @@ local MeuInput = MinhaSecao:AddInput("IdUnico", {
 
 MeuInput:OnChanged(function(Value) end)
 MeuInput:SetValue("NomeDoJogador")
-print(Library.Options["IdUnico"].Value)
 ```
 
 ---
@@ -298,6 +288,7 @@ MinhaSecao:AddParagraph({
     Content = "Versão 1.0 | Discord: meuhub.gg\nSuporte a múltiplas linhas.",
 })
 
+-- Suporta MiniMessage para texto colorido
 MinhaSecao:AddParagraph({
     Title   = "Colorido",
     Content = "<red>Vermelho</red> | <green>Verde</green> | <gradient:#FF0000:#0000FF>Gradiente</gradient>",
@@ -316,6 +307,7 @@ Library:Notify({
     Duration   = 5,
 })
 
+-- Fechar manualmente
 local Notif = Library:Notify({ Title = "...", Content = "..." })
 Notif:Close()
 ```
@@ -342,17 +334,20 @@ Library:CreateMinimizer({
 ## 9. SaveManager
 
 ```lua
+-- Salvar configurações
 local ok, err = Library.SaveManager:Save()
 if not ok then print("Erro ao salvar:", err) end
 
+-- Carregar configurações
 local ok, err = Library.SaveManager:Load()
 
+-- Ativar auto-save ao criar a aba de configurações
 local SettingsTab = Window:AddTab({
     Title       = "Settings",
     SaveManager = true,
 })
 
-Library.SaveManager.Ignore["IdUnico"] = true
+-- Alterar pasta de save
 Library.SaveManager.Folder = "MeuScript"
 ```
 
@@ -363,14 +358,13 @@ O arquivo é salvo em `FluentSettings/<Título da Janela>.json`.
 ## 10. Métodos da Library
 
 ```lua
-Library:SetTheme("Arctic")
-Library:Destroy()
-Library:ToggleBlur(true)
-Library:ToggleTransparency(true)
-Library:SetWindowTransparency(1.5)
+Library:SetTheme("Arctic")          -- Muda o tema
+Library:Destroy()                   -- Remove a interface
+Library:ToggleBlur(true)            -- Ativa/desativa blur no Lighting
+Library:ToggleTransparency(true)    -- Alterna transparência do fundo
+Library:SetWindowTransparency(1.5)  -- Define transparência (0–3)
 
-local valor = Library.Options["IdUnico"].Value
-
+-- Verificar se a lib foi destruída
 if Library.Unloaded then return end
 ```
 
@@ -400,13 +394,13 @@ local ChamsSub = VisualTab:AddSubTab("Chams")
 
 local AimSection = CombatTab:AddSection("Aimbot")
 
-AimSection:AddToggle("Aimbot", {
+AimSection:AddToggle({
     Title    = "Aimbot",
     Default  = false,
     Callback = function(v) end,
 })
 
-AimSection:AddSlider("AimFOV", {
+AimSection:AddSlider({
     Title    = "FOV",
     Min      = 10,
     Max      = 500,
@@ -415,14 +409,14 @@ AimSection:AddSlider("AimFOV", {
     Callback = function(v) end,
 })
 
-AimSection:AddDropdown("AimPart", {
+AimSection:AddDropdown({
     Title    = "Target Part",
     Values   = { "Head", "Torso", "HumanoidRootPart" },
     Default  = "Head",
     Callback = function(v) end,
 })
 
-AimSection:AddKeybind("AimKey", {
+AimSection:AddKeybind({
     Title    = "Hold Key",
     Default  = "Q",
     Mode     = "Hold",
@@ -431,19 +425,19 @@ AimSection:AddKeybind("AimKey", {
 
 local ESPSec = ESPSub:AddSection("ESP")
 
-ESPSec:AddToggle("ESPToggle", {
+ESPSec:AddToggle({
     Title    = "ESP",
     Default  = false,
     Callback = function(v) end,
 })
 
-ESPSec:AddColorpicker("ESPColor", {
+ESPSec:AddColorpicker({
     Title    = "Box Color",
     Default  = Color3.fromRGB(255, 65, 65),
     Callback = function(v) end,
 })
 
-ESPSec:AddDropdown("ESPMode", {
+ESPSec:AddDropdown({
     Title    = "Mode",
     Values   = { "Box", "Skeleton", "Dot" },
     Default  = "Box",
@@ -452,14 +446,14 @@ ESPSec:AddDropdown("ESPMode", {
 
 local SettSec = SettingsTab:AddSection("Appearance")
 
-SettSec:AddDropdown("Theme", {
+SettSec:AddDropdown({
     Title    = "Theme",
     Values   = Library.Themes,
     Default  = "Midnight",
     Callback = function(v) Library:SetTheme(v) end,
 })
 
-SettSec:AddToggle("Blur", {
+SettSec:AddToggle({
     Title    = "Game Blur",
     Default  = true,
     Callback = function(v) Library:ToggleBlur(v) end,
@@ -493,7 +487,6 @@ Library:Notify({
 
 ## Notas Finais
 
-- **IDs dos elementos** devem ser únicos. São usados pelo `SaveManager` e por `Library.Options`.
-- **MiniMessage** é suportado em textos: `<red>texto</red>`, `<gradient:#FF0000:#00FF00>gradiente</gradient>`, `<b>negrito</b>`, `<i>itálico</i>`, `<u>sublinhado</u>`.
+- **MiniMessage** é suportado em todos os textos: `<red>texto</red>`, `<gradient:#FF0000:#00FF00>gradiente</gradient>`, `<b>negrito</b>`, `<i>itálico</i>`, `<u>sublinhado</u>`.
 - O `SaveManager` só funciona fora do Roblox Studio.
-- `Acrylic = true` adiciona efeito de profundidade mas pode impactar performance.
+- `Acrylic = true` adiciona efeito de profundidade, mas pode impactar performance.
