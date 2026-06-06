@@ -360,7 +360,7 @@ O arquivo é salvo em `FluentSettings/<Título da Janela>.json`.
 ```lua
 Library:SetTheme("Arctic")          -- Muda o tema
 Library:Destroy()                   -- Remove a interface
-Library:ToggleBlur(true)            -- Ativa/desativa blur no Lighting
+Library:ToggleBlur(true)            -- Ativa/desativa o blur acrílico do painel
 Library:ToggleTransparency(true)    -- Alterna transparência do fundo
 Library:SetWindowTransparency(1.5)  -- Define transparência (0–3)
 
