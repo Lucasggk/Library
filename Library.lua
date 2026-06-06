@@ -7430,16 +7430,16 @@ function Library:CreateMinimizer(Config)
 			New("ImageLabel", {
 				Name = "Icon",
 				Image = iconAsset,
-				Size = UDim2.new(0.8, 0, 0.8, 0),
-				Position = UDim2.new(0.5, 0, 0.5, 0),
-				AnchorPoint = Vector2.new(0.5, 0.5),
+				Size = UDim2.new(1, 0, 1, 0),
+				Position = UDim2.new(0, 0, 0, 0),
+				AnchorPoint = Vector2.new(0, 0),
 				BackgroundTransparency = 1,
+				ScaleType = Enum.ScaleType.Stretch,
 				ThemeTag = {
 					ImageColor3 = "Text",
 				},
 			}, {
-				New("UIAspectRatioConstraint", { AspectRatio = 1, AspectType = Enum.AspectType.FitWithinMaxSize }),
-				New("UICorner", { CornerRadius = UDim.new(0, 0) })
+				New("UICorner", { CornerRadius = UDim.new(0, cornerRadius or (isDesktop and 14 or 12)) })
 			}),
 		})
 	end
