@@ -5152,7 +5152,7 @@ Components.Window = (function()
 		Window._TabModule = TabModule
 function Window:AddTab(TabConfig)
 			local tab = TabModule:New(TabConfig.Title, TabConfig.Icon, Window.TabHolder)
-			if TabConfig.SaveManager then
+			if TabConfig.SaveManager == true then
 				task.defer(function()
 					if Library.SaveManager then
 						Library.SaveManager:EnableAutoSave()
@@ -7245,9 +7245,25 @@ function SaveManager:BuildFolderTree()
 	if RunService:IsStudio() then return end
 	local ok1, _ = pcall(function() if not isfolder(self.Folder) then makefolder(self.Folder) end end)
 end
+function SaveManager:GetSaveTitle()
+	local title = nil
+	if Library.Window then
+		if Library.Window.Title then
+			title = Library.Window.Title
+		else
+			local tb = Library.Window.TitleBar and Library.Window.TitleBar.Frame
+			if tb then
+				for _, v in ipairs(tb:GetDescendants()) do
+					if v:IsA("TextLabel") and v.Text ~= "" then title = v.Text break end
+				end
+			end
+		end
+	end
+	return title or "Config"
+end
 function SaveManager:Save()
 	if RunService:IsStudio() then return true end
-	local title = Library.Window and Library.Window.Title or "Config"
+	local title = self:GetSaveTitle()
 	local path = self.Folder .. "/" .. title .. ".json"
 	local data = { __theme = Library.Theme }
 	for idx, option in next, Library.Options do
@@ -7263,7 +7279,7 @@ function SaveManager:Save()
 end
 function SaveManager:Load()
 	if RunService:IsStudio() then return true end
-	local title = Library.Window and Library.Window.Title or "Config"
+	local title = self:GetSaveTitle()
 	local path = self.Folder .. "/" .. title .. ".json"
 	local exists = pcall(function() return isfile(path) end)
 	if not (pcall(isfile, path) and isfile(path)) then return false, "File not found" end
@@ -7366,6 +7382,10 @@ Library.CreateWindow = function(self, Config)
 	})
 	Library.Window = Window
 	table.insert(Library.Windows, Window)
+
+	Window.AcrylicBlur = function(self, Value)
+		Library:AcrylicBlur(Value)
+	end
 
 	Library:SetTheme(Config.Theme)
 	return Window
@@ -7510,25 +7530,43 @@ function Library:CreateMinimizer(Config)
 	self.Minimizer = holder
 	return holder
 end
-function Library:ToggleBlur(Value)
+function Library:AcrylicBlur(Value)
 	if not Library.Window then return end
 	local paint = Library.Window.AcrylicPaint
 	if not paint or not paint.Frame then return end
-	for _, child in ipairs(paint.Frame:GetChildren()) do
-		if child:IsA("Frame") or child:IsA("ImageLabel") then
-			if child.Name ~= "Background" then
-				child.Visible = Value
+	Library._blurEnabled = Value
+	local bg = paint.Frame:FindFirstChild("Background")
+	if Value then
+		for _, child in ipairs(paint.Frame:GetChildren()) do
+			if child:IsA("Frame") or child:IsA("ImageLabel") then
+				if child.Name ~= "Background" then
+					child.Visible = true
+				end
 			end
 		end
-	end
-	local bg = paint.Frame:FindFirstChild("Background")
-	if bg then
-		bg.BackgroundTransparency = Value and 0.45 or 0
-	end
-	if paint.Model then
-		paint.Model.Transparency = Value and 0.98 or 1
+		if bg then
+			bg.BackgroundTransparency = Library._transparencyEnabled and 0.35 or 0.45
+		end
+		if paint.Model then
+			paint.Model.Transparency = 0.98
+		end
+	else
+		for _, child in ipairs(paint.Frame:GetChildren()) do
+			if child:IsA("ImageLabel") then
+				if child.Name ~= "Background" then
+					child.Visible = false
+				end
+			end
+		end
+		if bg then
+			bg.BackgroundTransparency = Library._transparencyEnabled and 0.35 or 0
+		end
+		if paint.Model then
+			paint.Model.Transparency = 1
+		end
 	end
 end
+
 function Library:SetTheme(Value)
 	if Library.Window and table.find(Library.Themes, Value) then
 		Library.Theme = Value
@@ -7553,14 +7591,28 @@ function Library:ToggleAcrylic(Value)
 		if Library.UseAcrylic then
 			Library.Acrylic = Value
 			if Library.Window.AcrylicPaint and Library.Window.AcrylicPaint.Model then
-				Library.Window.AcrylicPaint.Model.Transparency = Value and 0.95 or 1
+				if Value and Library._blurEnabled ~= false then
+					Library.Window.AcrylicPaint.Model.Transparency = 0.95
+				else
+					Library.Window.AcrylicPaint.Model.Transparency = 1
+				end
 			end
 		end
 	end
 end
 function Library:ToggleTransparency(Value)
 	if Library.Window then
-		Library.Window.AcrylicPaint.Frame.Background.BackgroundTransparency = Value and 0.35 or 0
+		Library._transparencyEnabled = Value
+		local paint = Library.Window.AcrylicPaint
+		if not paint or not paint.Frame then return end
+		local bg = paint.Frame:FindFirstChild("Background")
+		if bg then
+			if Value then
+				bg.BackgroundTransparency = 0.35
+			else
+				bg.BackgroundTransparency = Library._blurEnabled and 0.45 or 0
+			end
+		end
 	end
 end
 function Library:SetWindowTransparency(Value)
