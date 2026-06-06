@@ -1224,6 +1224,7 @@ local Creator = {
 			Text = "",
 			TextColor3 = Color3.new(0, 0, 0),
 			BackgroundTransparency = 1,
+			TextScaled = false,
 			TextSize = 14,
 		},
 		TextButton = {
@@ -1249,13 +1250,13 @@ local Creator = {
 			BackgroundColor3 = Color3.new(1, 1, 1),
 			BorderColor3 = Color3.new(0, 0, 0),
 			BorderSizePixel = 0,
-			ResampleMode = Enum.ResamplerMode.Default,
+			ResampleMode = Enum.ResamplerMode.Pixelated,
 		},
 		ImageButton = {
 			BackgroundColor3 = Color3.new(1, 1, 1),
 			BorderColor3 = Color3.new(0, 0, 0),
 			AutoButtonColor = false,
-			ResampleMode = Enum.ResamplerMode.Default,
+			ResampleMode = Enum.ResamplerMode.Pixelated,
 		},
 		CanvasGroup = {
 			BackgroundColor3 = Color3.new(1, 1, 1),
@@ -2502,8 +2503,8 @@ Components.Section = (function()
 				TextTransparency = 0,
 				FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
 				TextSize = 14,
-				TextXAlignment = "Left",
-				TextYAlignment = "Center",
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextYAlignment = Enum.TextYAlignment.Center,
 				Size = UDim2.fromScale(0, 1),
 				AutomaticSize = Enum.AutomaticSize.X,
 				BackgroundTransparency = 1,
@@ -2608,8 +2609,8 @@ Components.Tab = (function()
 					Enum.FontStyle.Normal
 				),
 				TextSize = 13,
-				TextXAlignment = "Left",
-				TextYAlignment = "Center",
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextYAlignment = Enum.TextYAlignment.Center,
 				Size = UDim2.new(1, -12, 1, 0),
 				BackgroundTransparency = 1,
 				ZIndex = 11,
@@ -2821,8 +2822,8 @@ Components.Tab = (function()
 					FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
 					TextSize = 13,
 					TextScaled = false,
-					TextXAlignment = "Left",
-					TextYAlignment = "Center",
+					TextXAlignment = Enum.TextXAlignment.Left,
+					TextYAlignment = Enum.TextYAlignment.Center,
 					Size = UDim2.new(0, 0, 1, 0),
 					AutomaticSize = Enum.AutomaticSize.X,
 					BackgroundTransparency = 1,
@@ -3524,8 +3525,8 @@ Components.Notification = (function()
 			TextTransparency = 0,
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json"),
 			TextSize = 13,
-			TextXAlignment = "Left",
-			TextYAlignment = "Center",
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
 			Size = UDim2.new(1, -12, 0, 12),
 			TextWrapped = true,
 			BackgroundTransparency = 1,
@@ -3971,8 +3972,8 @@ Components.TitleBar = (function()
 						Enum.FontStyle.Normal
 					),
 					TextSize = 13,
-					TextXAlignment = "Left",
-					TextYAlignment = "Center",
+					TextXAlignment = Enum.TextXAlignment.Left,
+					TextYAlignment = Enum.TextYAlignment.Center,
 					Size = UDim2.fromScale(0, 1),
 					AutomaticSize = Enum.AutomaticSize.X,
 					BackgroundTransparency = 1,
@@ -3991,8 +3992,8 @@ Components.TitleBar = (function()
 						Enum.FontStyle.Normal
 					),
 					TextSize = 13,
-					TextXAlignment = "Left",
-					TextYAlignment = "Center",
+					TextXAlignment = Enum.TextXAlignment.Left,
+					TextYAlignment = Enum.TextYAlignment.Center,
 					Size = UDim2.fromScale(0, 1),
 					AutomaticSize = Enum.AutomaticSize.X,
 					BackgroundTransparency = 1,
@@ -4501,8 +4502,8 @@ Components.Window = (function()
 			TextTransparency = 0,
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
 			TextSize = 22,
-			TextXAlignment = "Left",
-			TextYAlignment = "Center",
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Center,
 			Size = UDim2.new(1, -16, 0, 28),
 			Position = UDim2.fromOffset(Window.TabWidth + 26, 56),
 			BackgroundTransparency = 1,
@@ -7173,12 +7174,18 @@ end
 
 for _, ElementComponent in pairs(ElementsTable) do
 	Elements["Add" .. ElementComponent.__type] = function(self, Idx, Config)
+		if type(Idx) == "table" then
+			Config = Idx
+			IdxStr = Config.Id or Config.Title or tostring(math.random(100000, 999999))
+		else
+			IdxStr = Idx
+		end
 		ElementComponent.Container = self.Container
 		ElementComponent.Type = self.Type
 		ElementComponent.ScrollFrame = self.ScrollFrame
 		ElementComponent.Library = Library
 
-		return ElementComponent:New(Idx, Config)
+		return ElementComponent:New(IdxStr, Config)
 	end
 end
 
@@ -7498,6 +7505,18 @@ function Library:CreateMinimizer(Config)
 	return holder
 end
 function Library:ToggleBlur(Value)
+	if not Library._BlurEffect then
+		Library._BlurEffect = Instance.new("BlurEffect")
+		Library._BlurEffect.Size = 10
+		Library._BlurEffect.Name = "FluentBlur"
+	end
+	if Value then
+		Library._BlurEffect.Parent = game:GetService("Lighting")
+		Library._BlurEffect.Enabled = true
+	else
+		Library._BlurEffect.Enabled = false
+		Library._BlurEffect.Parent = nil
+	end
 	if Acrylic then
 		if Value then
 			if Acrylic.Enable then
