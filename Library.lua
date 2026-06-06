@@ -7408,26 +7408,34 @@ function Library:CreateMinimizer(Config)
 	local draggableWhole = (Config.Draggable == true)
 	local holder
 	local function createButton(isDesktop)
-		return New("TextButton", {
+		local hasIcon = iconAsset ~= ""
+		local btnProps = {
 			Name = "MinimizeButton",
 			Size = UDim2.new(1, 0, 1, 0),
 			BorderSizePixel = 0,
-			BackgroundTransparency = backgroundTransparency or 0,
 			AutoButtonColor = true,
-			ThemeTag = {
-				BackgroundColor3 = "Element",
-			},
-		}, {
+		}
+		if hasIcon then
+			btnProps.BackgroundTransparency = 1
+		else
+			btnProps.BackgroundTransparency = backgroundTransparency or 0
+			btnProps.ThemeTag = { BackgroundColor3 = "Element" }
+		end
+		local children = {
 			New("UICorner", { CornerRadius = UDim.new(0, cornerRadius or (isDesktop and 14 or 12)) }),
-			New("UIStroke", {
+		}
+		if not hasIcon then
+			table.insert(children, New("UIStroke", {
 				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 				Transparency = isDesktop and 0.6 or 0.7,
 				Thickness = isDesktop and 2 or 1.5,
 				ThemeTag = {
 					Color = "ElementBorder",
 				},
-			}),
-			New("ImageLabel", {
+			}))
+		end
+		if hasIcon then
+			table.insert(children, New("ImageLabel", {
 				Name = "Icon",
 				Image = iconAsset,
 				Size = UDim2.new(1, 0, 1, 0),
@@ -7438,8 +7446,9 @@ function Library:CreateMinimizer(Config)
 				ScaleType = Enum.ScaleType.Stretch,
 			}, {
 				New("UICorner", { CornerRadius = UDim.new(0, cornerRadius or (isDesktop and 14 or 12)) })
-			}),
-		})
+			}))
+		end
+		return New("TextButton", btnProps, children)
 	end
 	if isMobile then
 		holder = New("Frame", {
