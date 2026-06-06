@@ -33,8 +33,7 @@ Biblioteca de interface gráfica para scripts Roblox. Oferece janelas, abas, ele
 Cole o código-fonte da biblioteca no topo do seu script. Após isso, `Fluent` (ou `Library`) estará disponível globalmente.
 
 ```lua
--- Após carregar o código da biblioteca:
-local Library = Fluent  -- ou use Library diretamente
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Lucasggk/Library/refs/heads/main/Library.lua"))()
 ```
 
 ---
