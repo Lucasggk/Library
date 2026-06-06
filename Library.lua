@@ -5200,7 +5200,7 @@ ElementsTable.Button = (function()
 	Element.__type = "Button"
 
 	function Element:New(Config)
-		assert(Config.Title, "Button - Missing Title")
+		Config.Title = Config.Title or "Button"
 		Config.Callback = Config.Callback or function() end
 
 		local ButtonFrame = Components.Element(Config.Title, Config.Description, self.Container, true, Config)
@@ -5232,7 +5232,7 @@ ElementsTable.Toggle = (function()
 	Element.__type = "Toggle"
 
 	function Element:New(Idx, Config)
-		assert(Config.Title, "Toggle - Missing Title")
+		Config.Title = Config.Title or "Toggle"
 
 		local Toggle = {
 			Value = Config.Default or false,
@@ -6224,11 +6224,11 @@ ElementsTable.Slider = (function()
 	Element.__type = "Slider"
 
 	function Element:New(Idx, Config)
-		assert(Config.Title, "Slider - Missing Title.")
-		assert(Config.Default, "Slider - Missing default value.")
-		assert(Config.Min, "Slider - Missing minimum value.")
-		assert(Config.Max, "Slider - Missing maximum value.")
-		assert(Config.Rounding, "Slider - Missing rounding value.")
+		Config.Title = Config.Title or "Slider"
+		Config.Default = Config.Default or Config.Min or 0
+		Config.Min = Config.Min or 0
+		Config.Max = Config.Max or 100
+		Config.Rounding = Config.Rounding or 0
 
 		local Slider = {
 			Value = nil,
@@ -6380,8 +6380,8 @@ ElementsTable.Keybind = (function()
 	Element.__type = "Keybind"
 
 	function Element:New(Idx, Config)
-		assert(Config.Title, "KeyBind - Missing Title")
-		assert(Config.Default, "KeyBind - Missing default value.")
+		Config.Title = Config.Title or "Keybind"
+		Config.Default = Config.Default or "None"
 
 		local Keybind = {
 			Value = Config.Default,
@@ -6580,8 +6580,8 @@ ElementsTable.Colorpicker = (function()
 	Element.__type = "Colorpicker"
 
 	function Element:New(Idx, Config)
-		assert(Config.Title, "Colorpicker - Missing Title")
-		assert(Config.Default, "AddColorPicker: Missing default value.")
+		Config.Title = Config.Title or "Color"
+		Config.Default = Config.Default or Color3.fromRGB(255,255,255)
 
 		local Colorpicker = {
 			Value = Config.Default,
@@ -7085,7 +7085,7 @@ ElementsTable.Input = (function()
 	Element.__type = "Input"
 
 	function Element:New(Idx, Config)
-		assert(Config.Title, "Input - Missing Title")
+		Config.Title = Config.Title or "Input"
 		Config.Callback = Config.Callback or function() end
 
 		local Input = {
@@ -7179,13 +7179,19 @@ for _, ElementComponent in pairs(ElementsTable) do
 			IdxStr = Config.Id or Config.Title or tostring(math.random(100000, 999999))
 		else
 			IdxStr = Idx
+			Config = Config or {}
 		end
 		ElementComponent.Container = self.Container
 		ElementComponent.Type = self.Type
 		ElementComponent.ScrollFrame = self.ScrollFrame
 		ElementComponent.Library = Library
 
-		return ElementComponent:New(IdxStr, Config)
+		local eType = ElementComponent.__type
+		if eType == "Button" or eType == "Paragraph" then
+			return ElementComponent:New(Config)
+		else
+			return ElementComponent:New(IdxStr, Config)
+		end
 	end
 end
 
