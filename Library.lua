@@ -7434,10 +7434,8 @@ function Library:CreateMinimizer(Config)
 				Position = UDim2.new(0, 0, 0, 0),
 				AnchorPoint = Vector2.new(0, 0),
 				BackgroundTransparency = 1,
+				ImageColor3 = Color3.fromRGB(255, 255, 255),
 				ScaleType = Enum.ScaleType.Stretch,
-				ThemeTag = {
-					ImageColor3 = "Text",
-				},
 			}, {
 				New("UICorner", { CornerRadius = UDim.new(0, cornerRadius or (isDesktop and 14 or 12)) })
 			}),
