@@ -2583,6 +2583,7 @@ Components.Tab = (function()
 			Type = "Tab",
 		}
 
+
 		Tab.Frame = New("TextButton", {
 			Size = UDim2.new(1, 0, 0, 34),
 			BackgroundTransparency = 0.92,
@@ -3590,7 +3591,7 @@ Components.Notification = (function()
 			BackgroundTransparency = 1,
 		}, {
 			New("ImageLabel", {
-				Image = Components.Assets.Close,
+				Image = Components.Close,
 				Size = UDim2.fromOffset(16, 16),
 				Position = UDim2.fromScale(0.5, 0.5),
 				AnchorPoint = Vector2.new(0.5, 0.5),
@@ -4758,7 +4759,6 @@ Components.Window = (function()
 		Window.ContainerXMotor = Flipper.SingleMotor.new(0)
 
 		SizeMotor:onStep(function(values)
-			_G.CDDrag = _G.CDDrag or 0
 			task.wait(_G.CDDrag / 10)
 			Window.Root.Size = UDim2.new(0, values.X, 0, values.Y)
 			task.spawn(function()
@@ -4770,7 +4770,6 @@ Components.Window = (function()
 		end)
 
 		PosMotor:onStep(function(values)
-			_G.CDDrag = _G.CDDrag or 0
 			task.wait(_G.CDDrag / 10)
 			Window.Root.Position = UDim2.new(0, values.X, 0, values.Y)
 		end)
@@ -4829,7 +4828,7 @@ Components.Window = (function()
 		end)
 
 		Window.ContainerBackMotor:onStep(function(Value)
-
+			-- Frame-based: nothing needed, visibility handled elsewhere
 		end)
 
 		local ContainerXValue = 0
@@ -6295,6 +6294,8 @@ ElementsTable.Slider = (function()
 			},
 		})
 
+
+
 		local SliderInner = New("Frame", {
 			Size = UDim2.new(1, 0, 0, 8),
 			AnchorPoint = Vector2.new(1, 0.5),
@@ -7164,6 +7165,7 @@ NotificationModule:Init(GUI)
 
 local New = Creator.New
 
+
 local Elements = {}
 Elements.__index = Elements
 Elements.__namecall = function(Table, Key, ...)
@@ -7193,6 +7195,7 @@ for _, ElementComponent in pairs(ElementsTable) do
 	end
 end
 
+
 local SaveManager = {
 	Folder = "FluentSettings",
 	Ignore = {},
@@ -7201,163 +7204,47 @@ local SaveManager = {
 	_saveDebounce = false,
 	Parser = {
 		Toggle = {
-			Save = function(idx, object)
-				return { type = "Toggle", value = object.Value }
-			end,
+			Save = function(idx, object) return { type = "Toggle", idx = idx, value = object.Value } end,
 			Load = function(idx, data)
-				if Library.Options[idx] then
-					Library.Options[idx]:SetValue(data.value == true)
-				end
+				if Library.Options[idx] then Library.Options[idx]:SetValue(data.value) end
 			end,
 		},
 		Slider = {
-			Save = function(idx, object)
-				return { type = "Slider", value = tostring(object.Value) }
-			end,
+			Save = function(idx, object) return { type = "Slider", idx = idx, value = tostring(object.Value) } end,
 			Load = function(idx, data)
-				if Library.Options[idx] then
-					Library.Options[idx]:SetValue(tonumber(data.value) or 0)
-				end
+				if Library.Options[idx] then Library.Options[idx]:SetValue(tonumber(data.value) or data.value) end
 			end,
 		},
 		Dropdown = {
-			Save = function(idx, object)
-				local isMulti = object.Multi == true
-				if isMulti then
-					local arr = { __isArray = true }
-					if type(object.Value) == "table" then
-						for k, v in pairs(object.Value) do
-							if v then
-								table.insert(arr, tostring(k))
-							end
-						end
-					end
-					return { type = "Dropdown", value = arr, multi = true }
-				else
-					local val = object.Value ~= nil and tostring(object.Value) or nil
-					return { type = "Dropdown", value = val, multi = false }
-				end
-			end,
+			Save = function(idx, object) return { type = "Dropdown", idx = idx, value = object.Value, multi = object.Multi } end,
 			Load = function(idx, data)
-				if not Library.Options[idx] then return end
-				local opt = Library.Options[idx]
-				if data.multi then
-					local rebuilt = {}
-					if type(data.value) == "table" then
-						if data.value[1] ~= nil or next(data.value) == nil then
-							for _, v in ipairs(data.value) do
-								rebuilt[tostring(v)] = true
-							end
-						else
-							for k, v in pairs(data.value) do
-								if v and k ~= "__isArray" then
-									rebuilt[tostring(k)] = true
-								end
-							end
-						end
-					end
-					opt:SetValue(rebuilt)
-				else
-					opt:SetValue(data.value ~= nil and tostring(data.value) or nil)
-				end
+				if Library.Options[idx] then Library.Options[idx]:SetValue(data.value) end
 			end,
 		},
 		Colorpicker = {
-			Save = function(idx, object)
-				return {
-					type = "Colorpicker",
-					value = object.Value:ToHex(),
-					transparency = object.Transparency or 0,
-				}
-			end,
+			Save = function(idx, object) return { type = "Colorpicker", idx = idx, value = object.Value:ToHex(), transparency = object.Transparency } end,
 			Load = function(idx, data)
-				if Library.Options[idx] then
-					Library.Options[idx]:SetValueRGB(Color3.fromHex(data.value), data.transparency or 0)
-				end
+				if Library.Options[idx] then Library.Options[idx]:SetValueRGB(Color3.fromHex(data.value), data.transparency) end
 			end,
 		},
 		Keybind = {
-			Save = function(idx, object)
-				return { type = "Keybind", mode = object.Mode, key = object.Value }
-			end,
+			Save = function(idx, object) return { type = "Keybind", idx = idx, mode = object.Mode, key = object.Value } end,
 			Load = function(idx, data)
-				if Library.Options[idx] then
-					Library.Options[idx]:SetValue(data.key, data.mode)
-				end
+				if Library.Options[idx] then Library.Options[idx]:SetValue(data.key, data.mode) end
 			end,
 		},
 		Input = {
-			Save = function(idx, object)
-				return { type = "Input", text = object.Value }
-			end,
+			Save = function(idx, object) return { type = "Input", idx = idx, text = object.Value } end,
 			Load = function(idx, data)
-				if Library.Options[idx] and type(data.text) == "string" then
-					Library.Options[idx]:SetValue(data.text)
-				end
+				if Library.Options[idx] and type(data.text) == "string" then Library.Options[idx]:SetValue(data.text) end
 			end,
 		},
 	},
 }
-
-local function PrettyJSON(val, indent)
-	indent = indent or 0
-	local pad = string.rep("\t", indent)
-	local inner = string.rep("\t", indent + 1)
-	local t = type(val)
-	if t == "boolean" then
-		return val and "true" or "false"
-	elseif t == "number" then
-		if val ~= val then return "null" end
-		if val == math.huge or val == -math.huge then return "null" end
-		if math.floor(val) == val and math.abs(val) < 1e15 then
-			return string.format("%d", val)
-		end
-		return tostring(val)
-	elseif t == "string" then
-		return httpService:JSONEncode(val)
-	elseif t == "nil" then
-		return "null"
-	elseif t == "table" then
-		local isArray = val.__isArray == true or (function()
-			if #val == 0 then return false end
-			for k in pairs(val) do
-				if type(k) ~= "number" then return false end
-			end
-			return true
-		end)()
-		if isArray then
-			local parts = {}
-			for _, v in ipairs(val) do
-				if tostring(v) ~= "__isArray" then
-					table.insert(parts, inner .. PrettyJSON(v, indent + 1))
-				end
-			end
-			return "[\n" .. table.concat(parts, ",\n") .. (parts[1] and "\n" .. pad or "") .. "]"
-		else
-			local parts = {}
-			local keys = {}
-			for k in pairs(val) do table.insert(keys, k) end
-			table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
-			for _, k in ipairs(keys) do
-				local encoded_key = httpService:JSONEncode(tostring(k))
-				table.insert(parts, inner .. encoded_key .. ": " .. PrettyJSON(val[k], indent + 1))
-			end
-			if #parts == 0 then return "{}" end
-			return "{\n" .. table.concat(parts, ",\n") .. "\n" .. pad .. "}"
-		end
-	end
-	return "null"
-end
-
 function SaveManager:BuildFolderTree()
 	if RunService:IsStudio() then return end
-	pcall(function()
-		if not isfolder(self.Folder) then
-			makefolder(self.Folder)
-		end
-	end)
+	local ok1, _ = pcall(function() if not isfolder(self.Folder) then makefolder(self.Folder) end end)
 end
-
 function SaveManager:GetSaveTitle()
 	local title = nil
 	if Library.Window then
@@ -7367,117 +7254,50 @@ function SaveManager:GetSaveTitle()
 			local tb = Library.Window.TitleBar and Library.Window.TitleBar.Frame
 			if tb then
 				for _, v in ipairs(tb:GetDescendants()) do
-					if v:IsA("TextLabel") and v.Text ~= "" then
-						title = v.Text
-						break
-					end
+					if v:IsA("TextLabel") and v.Text ~= "" then title = v.Text break end
 				end
 			end
 		end
 	end
 	return title or "Config"
 end
-
 function SaveManager:Save()
 	if RunService:IsStudio() then return true end
 	local title = self:GetSaveTitle()
 	local path = self.Folder .. "/" .. title .. ".json"
-
-	local data = {
-		__theme = Library.Theme,
-		__tabs = {},
-	}
-
+	local data = { __theme = Library.Theme }
 	for idx, option in next, Library.Options do
-		if self.Ignore[idx] or not self.Parser[option.Type] then continue end
-
-		local tabName = "Default"
-		if Library.Window and Library.Window._TabModule then
-			for tabIdx, tab in pairs(Library.Window._TabModule.Tabs) do
-				local container = tab.ContainerFrame
-				if container then
-					local frame = option.Elements and option.Elements.Frame
-					if frame and frame:IsDescendantOf(container) then
-						tabName = tab.Name or ("Tab" .. tabIdx)
-						break
-					end
-				end
-			end
+		if not self.Ignore[idx] and self.Parser[option.Type] then
+			data[#data + 1] = self.Parser[option.Type].Save(idx, option)
 		end
-
-		if not data.__tabs[tabName] then
-			data.__tabs[tabName] = {}
-		end
-
-		local saved = self.Parser[option.Type].Save(idx, option)
-		saved.idx = idx
-		data.__tabs[tabName][idx] = saved
 	end
-
-	local ok, err = pcall(function()
-		writefile(path, PrettyJSON(data))
-	end)
+	local success, encoded = pcall(httpService.JSONEncode, httpService, data)
+	if not success then return false, encoded end
+	local ok, err = pcall(writefile, path, encoded)
 	if not ok then return false, err end
 	return true
 end
-
 function SaveManager:Load()
 	if RunService:IsStudio() then return true end
 	local title = self:GetSaveTitle()
 	local path = self.Folder .. "/" .. title .. ".json"
-
-	if not (pcall(isfile, path) and isfile(path)) then
-		return false, "File not found"
-	end
-
+	local exists = pcall(function() return isfile(path) end)
+	if not (pcall(isfile, path) and isfile(path)) then return false, "File not found" end
 	local ok, result = pcall(readfile, path)
 	if not ok then return false, result end
-
 	local success, decoded = pcall(httpService.JSONDecode, httpService, result)
 	if not success then return false, decoded end
 	if type(decoded) ~= "table" then return false, "Invalid data" end
-
 	if decoded.__theme and type(decoded.__theme) == "string" then
 		Library:SetTheme(decoded.__theme)
 	end
-
-	if decoded.__tabs and type(decoded.__tabs) == "table" then
-		for tabName, tabData in pairs(decoded.__tabs) do
-			if type(tabData) == "table" then
-				for idx, optData in pairs(tabData) do
-					if type(optData) == "table" and optData.type and self.Parser[optData.type] then
-						local resolvedIdx = optData.idx or idx
-						pcall(function()
-							self.Parser[optData.type].Load(resolvedIdx, optData)
-						end)
-					end
-				end
-			end
-		end
-	else
-		for _, optData in ipairs(decoded) do
-			if type(optData) == "table" and optData.type and self.Parser[optData.type] then
-				pcall(function()
-					self.Parser[optData.type].Load(optData.idx, optData)
-				end)
-			end
+	for _, option in ipairs(decoded) do
+		if type(option) == "table" and option.type and self.Parser[option.type] then
+			pcall(function() self.Parser[option.type].Load(option.idx, option) end)
 		end
 	end
-
 	return true
 end
-
-function SaveManager:ClearSave()
-	if RunService:IsStudio() then return true end
-	local title = self:GetSaveTitle()
-	local path = self.Folder .. "/" .. title .. ".json"
-	local ok, err = pcall(function()
-		writefile(path, PrettyJSON({ __theme = Library.Theme, __tabs = {} }))
-	end)
-	if not ok then return false, err end
-	return true
-end
-
 function SaveManager:AutoSave()
 	if self._saveDebounce then return end
 	self._saveDebounce = true
@@ -7486,11 +7306,9 @@ function SaveManager:AutoSave()
 		self:Save()
 	end)
 end
-
 function SaveManager:LoadAutoloadConfig()
 	self:Load()
 end
-
 function SaveManager:EnableAutoSave()
 	self._autoSaveEnabled = true
 	self:BuildFolderTree()
@@ -7508,7 +7326,6 @@ function SaveManager:EnableAutoSave()
 		end
 	end)
 end
-
 SaveManager:BuildFolderTree()
 Library.SaveManager = SaveManager
 
