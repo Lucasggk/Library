@@ -2936,7 +2936,8 @@ Components.Tab = (function()
 
 			local SubTab = {
 				Type = "SubTab",
-				Name = Title,
+				Name = Tab.Name,
+				TabName = Tab.Name,
 				Button = SubTabButton,
 				Container = SubTabContainer,
 				ContainerAnim = SubTabContainerAnim,
@@ -2954,7 +2955,7 @@ Components.Tab = (function()
 			end
 
 			function SubTab:AddSection(SectionTitle, SectionIcon)
-				local Section = { Type = "Section" }
+				local Section = { Type = "Section", Name = Tab.Name, TabName = Tab.Name }
 
 				local Icon = SectionIcon
 
@@ -3085,7 +3086,7 @@ Components.Tab = (function()
 				return self.SubTabs[self.SelectedSubTab]:AddSection(SectionTitle, SectionIcon)
 			end
 
-			local Section = { Type = "Section" }
+			local Section = { Type = "Section", Name = Tab.Name, TabName = Tab.Name }
 
 			local Icon = SectionIcon
 
@@ -5321,6 +5322,7 @@ ElementsTable.Toggle = (function()
 
 		Toggle:SetValue(Toggle.Value)
 
+		Toggle.TabName = Element.TabName or "Unknown"
 		Library.Options[Idx] = Toggle
 		return Toggle
 	end
@@ -6190,6 +6192,7 @@ ElementsTable.Dropdown = (function()
 			Dropdown:Display()
 		end
 
+		Dropdown.TabName = Element.TabName or "Unknown"
 		Library.Options[Idx] = Dropdown
 		return Dropdown
 	end
@@ -6368,6 +6371,7 @@ ElementsTable.Slider = (function()
 
 		Slider:SetValue(Config.Default)
 
+		Slider.TabName = Element.TabName or "Unknown"
 		Library.Options[Idx] = Slider
 		return Slider
 	end
@@ -6568,6 +6572,7 @@ ElementsTable.Keybind = (function()
 			end
 		end)
 
+		Keybind.TabName = Element.TabName or "Unknown"
 		Library.Options[Idx] = Keybind
 		return Keybind
 	end
@@ -7073,6 +7078,7 @@ ElementsTable.Colorpicker = (function()
 
 		Colorpicker:Display()
 
+		Colorpicker.TabName = Element.TabName or "Unknown"
 		Library.Options[Idx] = Colorpicker
 		return Colorpicker
 	end
@@ -7153,6 +7159,7 @@ ElementsTable.Input = (function()
 			Library.Options[Idx] = nil
 		end
 
+		Input.TabName = Element.TabName or "Unknown"
 		Library.Options[Idx] = Input
 		return Input
 	end
@@ -7181,19 +7188,24 @@ for _, ElementComponent in pairs(ElementsTable) do
 			IdxStr = Idx
 			Config = Config or {}
 		end
+		local tabName = self.Name or self.TabName or "Unknown"
+		-- Sempre usa TabName como prefixo para garantir unicidade entre tabs
+		local uniqueIdx = tabName .. "_" .. IdxStr
 		ElementComponent.Container = self.Container
 		ElementComponent.Type = self.Type
 		ElementComponent.ScrollFrame = self.ScrollFrame
 		ElementComponent.Library = Library
+		ElementComponent.TabName = tabName
 
 		local eType = ElementComponent.__type
 		if eType == "Button" or eType == "Paragraph" then
 			return ElementComponent:New(Config)
 		else
-			return ElementComponent:New(IdxStr, Config)
+			return ElementComponent:New(uniqueIdx, Config)
 		end
 	end
 end
+
 
 
 local SaveManager = {
@@ -7204,47 +7216,61 @@ local SaveManager = {
 	_saveDebounce = false,
 	Parser = {
 		Toggle = {
-			Save = function(idx, object) return { type = "Toggle", idx = idx, value = object.Value } end,
+			Save = function(idx, object)
+				return { type = "Toggle", value = object.Value }
+			end,
 			Load = function(idx, data)
 				if Library.Options[idx] then Library.Options[idx]:SetValue(data.value) end
 			end,
 		},
 		Slider = {
-			Save = function(idx, object) return { type = "Slider", idx = idx, value = tostring(object.Value) } end,
+			Save = function(idx, object)
+				return { type = "Slider", value = tostring(object.Value) }
+			end,
 			Load = function(idx, data)
 				if Library.Options[idx] then Library.Options[idx]:SetValue(tonumber(data.value) or data.value) end
 			end,
 		},
 		Dropdown = {
-			Save = function(idx, object) return { type = "Dropdown", idx = idx, value = object.Value, multi = object.Multi } end,
+			Save = function(idx, object)
+				return { type = "Dropdown", value = object.Value, multi = object.Multi }
+			end,
 			Load = function(idx, data)
 				if Library.Options[idx] then Library.Options[idx]:SetValue(data.value) end
 			end,
 		},
 		Colorpicker = {
-			Save = function(idx, object) return { type = "Colorpicker", idx = idx, value = object.Value:ToHex(), transparency = object.Transparency } end,
+			Save = function(idx, object)
+				return { type = "Colorpicker", value = object.Value:ToHex(), transparency = object.Transparency }
+			end,
 			Load = function(idx, data)
 				if Library.Options[idx] then Library.Options[idx]:SetValueRGB(Color3.fromHex(data.value), data.transparency) end
 			end,
 		},
 		Keybind = {
-			Save = function(idx, object) return { type = "Keybind", idx = idx, mode = object.Mode, key = object.Value } end,
+			Save = function(idx, object)
+				return { type = "Keybind", mode = object.Mode, key = object.Value }
+			end,
 			Load = function(idx, data)
 				if Library.Options[idx] then Library.Options[idx]:SetValue(data.key, data.mode) end
 			end,
 		},
 		Input = {
-			Save = function(idx, object) return { type = "Input", idx = idx, text = object.Value } end,
+			Save = function(idx, object)
+				return { type = "Input", text = object.Value }
+			end,
 			Load = function(idx, data)
 				if Library.Options[idx] and type(data.text) == "string" then Library.Options[idx]:SetValue(data.text) end
 			end,
 		},
 	},
 }
+
 function SaveManager:BuildFolderTree()
 	if RunService:IsStudio() then return end
-	local ok1, _ = pcall(function() if not isfolder(self.Folder) then makefolder(self.Folder) end end)
+	pcall(function() if not isfolder(self.Folder) then makefolder(self.Folder) end end)
 end
+
 function SaveManager:GetSaveTitle()
 	local title = nil
 	if Library.Window then
@@ -7261,43 +7287,72 @@ function SaveManager:GetSaveTitle()
 	end
 	return title or "Config"
 end
+
+-- Monta data agrupada por Tab, removendo o prefixo "TabName_" das chaves
+function SaveManager:BuildData()
+	local data = { __theme = Library.Theme }
+	for idx, option in next, Library.Options do
+		if not self.Ignore[idx] and self.Parser[option.Type] then
+			local tabName = option.TabName or "Unknown"
+			if not data[tabName] then
+				data[tabName] = {}
+			end
+			-- Remove o prefixo "TabName_" do idx para salvar o nome limpo
+			local prefix = tabName .. "_"
+			local cleanIdx = idx:sub(1, #prefix) == prefix and idx:sub(#prefix + 1) or idx
+			data[tabName][cleanIdx] = self.Parser[option.Type].Save(idx, option)
+		end
+	end
+	return data
+end
+
 function SaveManager:Save()
 	if RunService:IsStudio() then return true end
 	local title = self:GetSaveTitle()
 	local path = self.Folder .. "/" .. title .. ".json"
-	local data = { __theme = Library.Theme }
-	for idx, option in next, Library.Options do
-		if not self.Ignore[idx] and self.Parser[option.Type] then
-			data[#data + 1] = self.Parser[option.Type].Save(idx, option)
-		end
-	end
+	local data = self:BuildData()
 	local success, encoded = pcall(httpService.JSONEncode, httpService, data)
 	if not success then return false, encoded end
 	local ok, err = pcall(writefile, path, encoded)
 	if not ok then return false, err end
 	return true
 end
+
 function SaveManager:Load()
 	if RunService:IsStudio() then return true end
 	local title = self:GetSaveTitle()
 	local path = self.Folder .. "/" .. title .. ".json"
-	local exists = pcall(function() return isfile(path) end)
 	if not (pcall(isfile, path) and isfile(path)) then return false, "File not found" end
 	local ok, result = pcall(readfile, path)
 	if not ok then return false, result end
 	local success, decoded = pcall(httpService.JSONDecode, httpService, result)
 	if not success then return false, decoded end
 	if type(decoded) ~= "table" then return false, "Invalid data" end
+	-- Carrega tema
 	if decoded.__theme and type(decoded.__theme) == "string" then
 		Library:SetTheme(decoded.__theme)
 	end
-	for _, option in ipairs(decoded) do
-		if type(option) == "table" and option.type and self.Parser[option.type] then
-			pcall(function() self.Parser[option.type].Load(option.idx, option) end)
+	-- Carrega opções agrupadas por tab
+	for tabName, tabData in pairs(decoded) do
+		if tabName ~= "__theme" and type(tabData) == "table" then
+			for idx, optData in pairs(tabData) do
+				if type(optData) == "table" and optData.type and self.Parser[optData.type] then
+					-- Tenta o idx com prefixo primeiro (interno), depois sem prefixo
+					local internalIdx = tabName .. "_" .. idx
+					local target = Library.Options[internalIdx] or Library.Options[idx]
+					if target then
+						pcall(function() self.Parser[optData.type].Load(internalIdx, optData) end)
+						if not Library.Options[internalIdx] then
+							pcall(function() self.Parser[optData.type].Load(idx, optData) end)
+						end
+					end
+				end
+			end
 		end
 	end
 	return true
 end
+
 function SaveManager:AutoSave()
 	if self._saveDebounce then return end
 	self._saveDebounce = true
@@ -7306,9 +7361,11 @@ function SaveManager:AutoSave()
 		self:Save()
 	end)
 end
+
 function SaveManager:LoadAutoloadConfig()
 	self:Load()
 end
+
 function SaveManager:EnableAutoSave()
 	self._autoSaveEnabled = true
 	self:BuildFolderTree()
@@ -7326,6 +7383,7 @@ function SaveManager:EnableAutoSave()
 		end
 	end)
 end
+
 SaveManager:BuildFolderTree()
 Library.SaveManager = SaveManager
 
