@@ -7223,20 +7223,20 @@ local SaveManager = {
 		Dropdown = {
 			Save = function(idx, object)
 				local isMulti = object.Multi == true
-				local val
 				if isMulti then
-					val = {}
+					local arr = { __isArray = true }
 					if type(object.Value) == "table" then
 						for k, v in pairs(object.Value) do
 							if v then
-								table.insert(val, tostring(k))
+								table.insert(arr, tostring(k))
 							end
 						end
 					end
+					return { type = "Dropdown", value = arr, multi = true }
 				else
-					val = object.Value ~= nil and tostring(object.Value) or nil
+					local val = object.Value ~= nil and tostring(object.Value) or nil
+					return { type = "Dropdown", value = val, multi = false }
 				end
-				return { type = "Dropdown", value = val, multi = isMulti }
 			end,
 			Load = function(idx, data)
 				if not Library.Options[idx] then return end
@@ -7244,8 +7244,16 @@ local SaveManager = {
 				if data.multi then
 					local rebuilt = {}
 					if type(data.value) == "table" then
-						for _, v in ipairs(data.value) do
-							rebuilt[tostring(v)] = true
+						if data.value[1] ~= nil or next(data.value) == nil then
+							for _, v in ipairs(data.value) do
+								rebuilt[tostring(v)] = true
+							end
+						else
+							for k, v in pairs(data.value) do
+								if v and k ~= "__isArray" then
+									rebuilt[tostring(k)] = true
+								end
+							end
 						end
 					end
 					opt:SetValue(rebuilt)
@@ -7310,14 +7318,21 @@ local function PrettyJSON(val, indent)
 	elseif t == "nil" then
 		return "null"
 	elseif t == "table" then
-		local isArray = #val > 0
+		local isArray = val.__isArray == true or (function()
+			if #val == 0 then return false end
+			for k in pairs(val) do
+				if type(k) ~= "number" then return false end
+			end
+			return true
+		end)()
 		if isArray then
 			local parts = {}
 			for _, v in ipairs(val) do
-				table.insert(parts, inner .. PrettyJSON(v, indent + 1))
+				if tostring(v) ~= "__isArray" then
+					table.insert(parts, inner .. PrettyJSON(v, indent + 1))
+				end
 			end
-			if #parts == 0 then return "[]" end
-			return "[\n" .. table.concat(parts, ",\n") .. "\n" .. pad .. "]"
+			return "[\n" .. table.concat(parts, ",\n") .. (parts[1] and "\n" .. pad or "") .. "]"
 		else
 			local parts = {}
 			local keys = {}
