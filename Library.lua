@@ -2583,6 +2583,8 @@ Components.Tab = (function()
 			Type = "Tab",
 		}
 
+		-- Valida icon: precisa ser string não vazia e conter "rbxassetid://" ou número válido
+		local validIcon = type(Icon) == "string" and Icon ~= "" and (Icon:find("rbxassetid://") or Icon:match("^%d+$")) and Icon or nil
 
 		Tab.Frame = New("TextButton", {
 			Size = UDim2.new(1, 0, 0, 34),
@@ -2598,7 +2600,7 @@ Components.Tab = (function()
 			}),
 			New("TextLabel", {
 				AnchorPoint = Vector2.new(0, 0.5),
-				Position = Icon and UDim2.new(0, 30, 0.5, 0) or UDim2.new(0, 12, 0.5, 0),
+				Position = validIcon and UDim2.new(0, 30, 0.5, 0) or UDim2.new(0, 12, 0.5, 0),
 				Text = Title,
 				RichText = true,
 				TextColor3 = Color3.fromRGB(255, 255, 255),
@@ -2618,17 +2620,17 @@ Components.Tab = (function()
 					TextColor3 = "Text",
 				},
 			}),
-			New("ImageLabel", {
+			validIcon and New("ImageLabel", {
 				AnchorPoint = Vector2.new(0, 0.5),
 				Size = UDim2.fromOffset(16, 16),
 				Position = UDim2.new(0, 8, 0.5, 0),
 				BackgroundTransparency = 1,
-				Image = Icon and Icon or nil,
+				Image = validIcon,
 				ZIndex = 11,
 				ThemeTag = {
 					ImageColor3 = "Text",
 				},
-			}),
+			}) or nil,
 		})
 
 		local ContainerLayout = New("UIListLayout", {
@@ -7350,6 +7352,19 @@ function SaveManager:Load()
 			end
 		end
 	end
+	return true
+end
+
+function SaveManager:ClearSave()
+	if RunService:IsStudio() then return true end
+	local title = self:GetSaveTitle()
+	local path = self.Folder .. "/" .. title .. ".json"
+	local ok, err = pcall(function()
+		if isfile(path) then
+			writefile(path, "{}")
+		end
+	end)
+	if not ok then return false, err end
 	return true
 end
 
