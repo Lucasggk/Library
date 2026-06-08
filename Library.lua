@@ -2583,7 +2583,6 @@ Components.Tab = (function()
 			Type = "Tab",
 		}
 
-
 		Tab.Frame = New("TextButton", {
 			Size = UDim2.new(1, 0, 0, 34),
 			BackgroundTransparency = 0.92,
@@ -3591,7 +3590,7 @@ Components.Notification = (function()
 			BackgroundTransparency = 1,
 		}, {
 			New("ImageLabel", {
-				Image = Components.Close,
+				Image = Components.Assets.Close,
 				Size = UDim2.fromOffset(16, 16),
 				Position = UDim2.fromScale(0.5, 0.5),
 				AnchorPoint = Vector2.new(0.5, 0.5),
@@ -4759,6 +4758,7 @@ Components.Window = (function()
 		Window.ContainerXMotor = Flipper.SingleMotor.new(0)
 
 		SizeMotor:onStep(function(values)
+			_G.CDDrag = _G.CDDrag or 0
 			task.wait(_G.CDDrag / 10)
 			Window.Root.Size = UDim2.new(0, values.X, 0, values.Y)
 			task.spawn(function()
@@ -4770,6 +4770,7 @@ Components.Window = (function()
 		end)
 
 		PosMotor:onStep(function(values)
+			_G.CDDrag = _G.CDDrag or 0
 			task.wait(_G.CDDrag / 10)
 			Window.Root.Position = UDim2.new(0, values.X, 0, values.Y)
 		end)
@@ -4828,7 +4829,7 @@ Components.Window = (function()
 		end)
 
 		Window.ContainerBackMotor:onStep(function(Value)
-			-- Frame-based: nothing needed, visibility handled elsewhere
+
 		end)
 
 		local ContainerXValue = 0
@@ -6294,8 +6295,6 @@ ElementsTable.Slider = (function()
 			},
 		})
 
-
-
 		local SliderInner = New("Frame", {
 			Size = UDim2.new(1, 0, 0, 8),
 			AnchorPoint = Vector2.new(1, 0.5),
@@ -7165,7 +7164,6 @@ NotificationModule:Init(GUI)
 
 local New = Creator.New
 
-
 local Elements = {}
 Elements.__index = Elements
 Elements.__namecall = function(Table, Key, ...)
@@ -7195,7 +7193,6 @@ for _, ElementComponent in pairs(ElementsTable) do
 	end
 end
 
-
 local SaveManager = {
 	Folder = "FluentSettings",
 	Ignore = {},
@@ -7204,47 +7201,49 @@ local SaveManager = {
 	_saveDebounce = false,
 	Parser = {
 		Toggle = {
-			Save = function(idx, object) return { type = "Toggle", idx = idx, value = object.Value } end,
+			Save = function(idx, object) return { type = "Toggle", value = object.Value } end,
 			Load = function(idx, data)
 				if Library.Options[idx] then Library.Options[idx]:SetValue(data.value) end
 			end,
 		},
 		Slider = {
-			Save = function(idx, object) return { type = "Slider", idx = idx, value = tostring(object.Value) } end,
+			Save = function(idx, object) return { type = "Slider", value = tostring(object.Value) } end,
 			Load = function(idx, data)
 				if Library.Options[idx] then Library.Options[idx]:SetValue(tonumber(data.value) or data.value) end
 			end,
 		},
 		Dropdown = {
-			Save = function(idx, object) return { type = "Dropdown", idx = idx, value = object.Value, multi = object.Multi } end,
+			Save = function(idx, object) return { type = "Dropdown", value = object.Value, multi = object.Multi } end,
 			Load = function(idx, data)
 				if Library.Options[idx] then Library.Options[idx]:SetValue(data.value) end
 			end,
 		},
 		Colorpicker = {
-			Save = function(idx, object) return { type = "Colorpicker", idx = idx, value = object.Value:ToHex(), transparency = object.Transparency } end,
+			Save = function(idx, object) return { type = "Colorpicker", value = object.Value:ToHex(), transparency = object.Transparency } end,
 			Load = function(idx, data)
 				if Library.Options[idx] then Library.Options[idx]:SetValueRGB(Color3.fromHex(data.value), data.transparency) end
 			end,
 		},
 		Keybind = {
-			Save = function(idx, object) return { type = "Keybind", idx = idx, mode = object.Mode, key = object.Value } end,
+			Save = function(idx, object) return { type = "Keybind", mode = object.Mode, key = object.Value } end,
 			Load = function(idx, data)
 				if Library.Options[idx] then Library.Options[idx]:SetValue(data.key, data.mode) end
 			end,
 		},
 		Input = {
-			Save = function(idx, object) return { type = "Input", idx = idx, text = object.Value } end,
+			Save = function(idx, object) return { type = "Input", text = object.Value } end,
 			Load = function(idx, data)
 				if Library.Options[idx] and type(data.text) == "string" then Library.Options[idx]:SetValue(data.text) end
 			end,
 		},
 	},
 }
+
 function SaveManager:BuildFolderTree()
 	if RunService:IsStudio() then return end
-	local ok1, _ = pcall(function() if not isfolder(self.Folder) then makefolder(self.Folder) end end)
+	pcall(function() if not isfolder(self.Folder) then makefolder(self.Folder) end end)
 end
+
 function SaveManager:GetSaveTitle()
 	local title = nil
 	if Library.Window then
@@ -7261,14 +7260,33 @@ function SaveManager:GetSaveTitle()
 	end
 	return title or "Config"
 end
+
 function SaveManager:Save()
 	if RunService:IsStudio() then return true end
 	local title = self:GetSaveTitle()
 	local path = self.Folder .. "/" .. title .. ".json"
-	local data = { __theme = Library.Theme }
+	local data = { __theme = Library.Theme, __tabs = {} }
 	for idx, option in next, Library.Options do
 		if not self.Ignore[idx] and self.Parser[option.Type] then
-			data[#data + 1] = self.Parser[option.Type].Save(idx, option)
+			local tabName = "Default"
+			if Library.Window and Library.Window._TabModule then
+				for tabIdx, tab in pairs(Library.Window._TabModule.Tabs) do
+					local container = tab.ContainerFrame
+					if container then
+						local frame = option.Elements and option.Elements.Frame
+						if frame and frame:IsDescendantOf(container) then
+							tabName = tab.Name or ("Tab" .. tabIdx)
+							break
+						end
+					end
+				end
+			end
+			if not data.__tabs[tabName] then
+				data.__tabs[tabName] = {}
+			end
+			local saved = self.Parser[option.Type].Save(idx, option)
+			saved.idx = idx
+			data.__tabs[tabName][idx] = saved
 		end
 	end
 	local success, encoded = pcall(httpService.JSONEncode, httpService, data)
@@ -7277,11 +7295,11 @@ function SaveManager:Save()
 	if not ok then return false, err end
 	return true
 end
+
 function SaveManager:Load()
 	if RunService:IsStudio() then return true end
 	local title = self:GetSaveTitle()
 	local path = self.Folder .. "/" .. title .. ".json"
-	local exists = pcall(function() return isfile(path) end)
 	if not (pcall(isfile, path) and isfile(path)) then return false, "File not found" end
 	local ok, result = pcall(readfile, path)
 	if not ok then return false, result end
@@ -7291,13 +7309,35 @@ function SaveManager:Load()
 	if decoded.__theme and type(decoded.__theme) == "string" then
 		Library:SetTheme(decoded.__theme)
 	end
-	for _, option in ipairs(decoded) do
-		if type(option) == "table" and option.type and self.Parser[option.type] then
-			pcall(function() self.Parser[option.type].Load(option.idx, option) end)
+	if decoded.__tabs and type(decoded.__tabs) == "table" then
+		for tabName, tabData in pairs(decoded.__tabs) do
+			if type(tabData) == "table" then
+				for idx, option in pairs(tabData) do
+					if type(option) == "table" and option.type and self.Parser[option.type] then
+						pcall(function() self.Parser[option.type].Load(idx, option) end)
+					end
+				end
+			end
+		end
+	else
+		for _, option in ipairs(decoded) do
+			if type(option) == "table" and option.type and self.Parser[option.type] then
+				pcall(function() self.Parser[option.type].Load(option.idx, option) end)
+			end
 		end
 	end
 	return true
 end
+
+function SaveManager:ClearSave()
+	if RunService:IsStudio() then return true end
+	local title = self:GetSaveTitle()
+	local path = self.Folder .. "/" .. title .. ".json"
+	local ok, err = pcall(writefile, path, httpService:JSONEncode({ __theme = Library.Theme, __tabs = {} }))
+	if not ok then return false, err end
+	return true
+end
+
 function SaveManager:AutoSave()
 	if self._saveDebounce then return end
 	self._saveDebounce = true
@@ -7306,9 +7346,11 @@ function SaveManager:AutoSave()
 		self:Save()
 	end)
 end
+
 function SaveManager:LoadAutoloadConfig()
 	self:Load()
 end
+
 function SaveManager:EnableAutoSave()
 	self._autoSaveEnabled = true
 	self:BuildFolderTree()
@@ -7326,6 +7368,7 @@ function SaveManager:EnableAutoSave()
 		end
 	end)
 end
+
 SaveManager:BuildFolderTree()
 Library.SaveManager = SaveManager
 
