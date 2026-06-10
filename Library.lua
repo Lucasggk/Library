@@ -5157,8 +5157,16 @@ function Window:AddTab(TabConfig)
 			local tab = TabModule:New(TabConfig.Title, TabConfig.Icon, Window.TabHolder)
 			if TabConfig.SaveManager == true then
 				task.defer(function()
-					if Library.SaveManager then
-						Library.SaveManager:EnableAutoSave()
+					Library.SaveManager:Load()
+					task.wait(0.1)
+					for idx, option in next, Library.Options do
+						if not Library.SaveManager.Ignore[idx] and option.Type and Library.SaveManager.Parser[option.Type] then
+							local orig = option.Callback
+							option.Callback = function(...)
+								if orig then pcall(orig, ...) end
+								Library.SaveManager:Save()
+							end
+						end
 					end
 				end)
 			end
@@ -7215,11 +7223,11 @@ local SaveManager = {
 	Ignore = {},
 	Options = Library.Options,
 	_autoSaveEnabled = false,
-	_saveDebounce = false,
+	_customFileName = nil,
 	Parser = {
 		Toggle = {
 			Save = function(idx, object)
-				return { type = "Toggle", value = object.Value }
+				return { value = object.Value }
 			end,
 			Load = function(idx, data)
 				if Library.Options[idx] then Library.Options[idx]:SetValue(data.value) end
@@ -7227,7 +7235,7 @@ local SaveManager = {
 		},
 		Slider = {
 			Save = function(idx, object)
-				return { type = "Slider", value = tostring(object.Value) }
+				return { value = tostring(object.Value) }
 			end,
 			Load = function(idx, data)
 				if Library.Options[idx] then Library.Options[idx]:SetValue(tonumber(data.value) or data.value) end
@@ -7235,7 +7243,7 @@ local SaveManager = {
 		},
 		Dropdown = {
 			Save = function(idx, object)
-				return { type = "Dropdown", value = object.Value, multi = object.Multi }
+				return { value = object.Value }
 			end,
 			Load = function(idx, data)
 				if Library.Options[idx] then Library.Options[idx]:SetValue(data.value) end
@@ -7243,7 +7251,7 @@ local SaveManager = {
 		},
 		Colorpicker = {
 			Save = function(idx, object)
-				return { type = "Colorpicker", value = object.Value:ToHex(), transparency = object.Transparency }
+				return { value = object.Value:ToHex(), transparency = object.Transparency }
 			end,
 			Load = function(idx, data)
 				if Library.Options[idx] then Library.Options[idx]:SetValueRGB(Color3.fromHex(data.value), data.transparency) end
@@ -7251,7 +7259,7 @@ local SaveManager = {
 		},
 		Keybind = {
 			Save = function(idx, object)
-				return { type = "Keybind", mode = object.Mode, key = object.Value }
+				return { mode = object.Mode, key = object.Value }
 			end,
 			Load = function(idx, data)
 				if Library.Options[idx] then Library.Options[idx]:SetValue(data.key, data.mode) end
@@ -7259,7 +7267,7 @@ local SaveManager = {
 		},
 		Input = {
 			Save = function(idx, object)
-				return { type = "Input", text = object.Value }
+				return { text = object.Value }
 			end,
 			Load = function(idx, data)
 				if Library.Options[idx] and type(data.text) == "string" then Library.Options[idx]:SetValue(data.text) end
@@ -7274,6 +7282,9 @@ function SaveManager:BuildFolderTree()
 end
 
 function SaveManager:GetSaveTitle()
+	if self._customFileName then
+		return self._customFileName
+	end
 	local title = nil
 	if Library.Window then
 		if Library.Window.Title then
@@ -7322,36 +7333,38 @@ end
 
 function SaveManager:Load()
 	if RunService:IsStudio() then return true end
-	local title = self:GetSaveTitle()
-	local path = self.Folder .. "/" .. title .. ".json"
-	if not (pcall(isfile, path) and isfile(path)) then return false, "File not found" end
-	local ok, result = pcall(readfile, path)
-	if not ok then return false, result end
-	local success, decoded = pcall(httpService.JSONDecode, httpService, result)
-	if not success then return false, decoded end
-	if type(decoded) ~= "table" then return false, "Invalid data" end
-	-- Carrega tema
-	if decoded.__theme and type(decoded.__theme) == "string" then
-		Library:SetTheme(decoded.__theme)
-	end
-	-- Carrega opções agrupadas por tab
-	for tabName, tabData in pairs(decoded) do
-		if tabName ~= "__theme" and type(tabData) == "table" then
-			for idx, optData in pairs(tabData) do
-				if type(optData) == "table" and optData.type and self.Parser[optData.type] then
-					-- Tenta o idx com prefixo primeiro (interno), depois sem prefixo
-					local internalIdx = tabName .. "_" .. idx
-					local target = Library.Options[internalIdx] or Library.Options[idx]
-					if target then
-						pcall(function() self.Parser[optData.type].Load(internalIdx, optData) end)
-						if not Library.Options[internalIdx] then
-							pcall(function() self.Parser[optData.type].Load(idx, optData) end)
+	task.defer(function()
+		local title = self:GetSaveTitle()
+		local path = self.Folder .. "/" .. title .. ".json"
+		if not (pcall(isfile, path) and isfile(path)) then return false, "File not found" end
+		local ok, result = pcall(readfile, path)
+		if not ok then return false, result end
+		local success, decoded = pcall(httpService.JSONDecode, httpService, result)
+		if not success then return false, decoded end
+		if type(decoded) ~= "table" then return false, "Invalid data" end
+		if decoded.__theme and type(decoded.__theme) == "string" then
+			Library:SetTheme(decoded.__theme)
+		end
+		for tabName, tabData in pairs(decoded) do
+			if tabName ~= "__theme" and type(tabData) == "table" then
+				for idx, optData in pairs(tabData) do
+					if type(optData) == "table" and self.Parser[optData.type or "Toggle"] then
+						local internalIdx = tabName .. "_" .. idx
+						local target = Library.Options[internalIdx] or Library.Options[idx]
+						if target then
+							local parserType = optData.type or target.Type or "Toggle"
+							if self.Parser[parserType] then
+								pcall(function() self.Parser[parserType].Load(internalIdx, optData) end)
+								if not Library.Options[internalIdx] then
+									pcall(function() self.Parser[parserType].Load(idx, optData) end)
+								end
+							end
 						end
 					end
 				end
 			end
 		end
-	end
+	end)
 	return true
 end
 
@@ -7368,39 +7381,13 @@ function SaveManager:ClearSave()
 	return true
 end
 
-function SaveManager:AutoSave()
-	if self._saveDebounce then return end
-	self._saveDebounce = true
-	task.delay(1.5, function()
-		self._saveDebounce = false
-		self:Save()
-	end)
-end
-
-function SaveManager:LoadAutoloadConfig()
-	self:Load()
-end
-
-function SaveManager:EnableAutoSave()
-	self._autoSaveEnabled = true
-	self:BuildFolderTree()
-	task.defer(function()
-		self:LoadAutoloadConfig()
-		task.wait(2)
-		for idx, option in next, Library.Options do
-			if not self.Ignore[idx] and self.Parser[option.Type] then
-				local orig = option.Callback
-				option.Callback = function(...)
-					if orig then pcall(orig, ...) end
-					self:AutoSave()
-				end
-			end
-		end
-	end)
-end
-
 SaveManager:BuildFolderTree()
 Library.SaveManager = SaveManager
+
+function Library.SaveManager:SetFileName(name)
+	self._customFileName = name
+	return self
+end
 
 Library.Elements = Elements
 
@@ -7424,6 +7411,7 @@ Library.CreateWindow = function(self, Config)
 	Library.UseAcrylic = Config.Acrylic or false
 	Library.Acrylic = Config.Acrylic or false
 	Library.Theme = Config.Theme or "Dark"
+	Library.SaveManager:SetFileName(Config.SaveFile or Config.Title)
 	if Config.BackgroundImage == nil then
 		Config.BackgroundImage = ""
 	end
