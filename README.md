@@ -456,7 +456,7 @@ SettSec:AddDropdown({
 SettSec:AddToggle({
     Title    = "Game Blur",
     Default  = true,
-    Callback = function(v) Library:ToggleBlur(v) end,
+    Callback = function(v) Library:AcrylicBlur(v) end,
 })
 
 SettSec:AddButton({
