@@ -812,7 +812,7 @@ end
 
 function Signal:fire(...)
 	for _, connection in pairs(self._connections) do
-		connection._handler(...)
+		task.spawn(connection._handler, ...)
 	end
 
 	for _, thread in pairs(self._threads) do
@@ -1320,6 +1320,15 @@ function Creator.UpdateTheme()
 	end
 end
 
+local function _applyThemeToObject(Object, Properties)
+	for Property, ColorIdx in next, Properties do
+		local themeValue = Creator.GetThemeProperty(ColorIdx)
+		if themeValue then
+			Object[Property] = themeValue
+		end
+	end
+end
+
 function Creator.AddThemeObject(Object, Properties)
 	local Idx = #Creator.Registry + 1
 	local Data = {
@@ -1329,13 +1338,13 @@ function Creator.AddThemeObject(Object, Properties)
 	}
 
 	Creator.Registry[Object] = Data
-	Creator.UpdateTheme()
+	_applyThemeToObject(Object, Properties)
 	return Object
 end
 
 function Creator.OverrideTag(Object, Properties)
 	Creator.Registry[Object].Properties = Properties
-	Creator.UpdateTheme()
+	_applyThemeToObject(Object, Properties)
 end
 
 function Creator.GetThemeProperty(Property)
@@ -2583,7 +2592,6 @@ Components.Tab = (function()
 			Type = "Tab",
 		}
 
-		-- Valida icon: precisa ser string não vazia e conter "rbxassetid://" ou número válido
 		local validIcon = type(Icon) == "string" and Icon ~= "" and (Icon:find("rbxassetid://") or Icon:match("^%d+$")) and Icon or nil
 
 		Tab.Frame = New("TextButton", {
@@ -4754,7 +4762,6 @@ Components.Window = (function()
 			Y = Window.Position.Y.Offset,
 		})
 
-		_G.CDDrag = 0
 		Window.SelectorPosMotor = Flipper.SingleMotor.new(17)
 		Window.SelectorSizeMotor = Flipper.SingleMotor.new(0)
 		Window.ContainerBackMotor = Flipper.SingleMotor.new(0)
@@ -4762,7 +4769,6 @@ Components.Window = (function()
 		Window.ContainerXMotor = Flipper.SingleMotor.new(0)
 
 		SizeMotor:onStep(function(values)
-			task.wait(_G.CDDrag / 10)
 			Window.Root.Size = UDim2.new(0, values.X, 0, values.Y)
 			task.spawn(function()
 				task.wait(0.01)
@@ -4773,7 +4779,6 @@ Components.Window = (function()
 		end)
 
 		PosMotor:onStep(function(values)
-			task.wait(_G.CDDrag / 10)
 			Window.Root.Position = UDim2.new(0, values.X, 0, values.Y)
 		end)
 
@@ -4831,7 +4836,6 @@ Components.Window = (function()
 		end)
 
 		Window.ContainerBackMotor:onStep(function(Value)
-			-- Frame-based: nothing needed, visibility handled elsewhere
 		end)
 
 		local ContainerXValue = 0
@@ -5155,13 +5159,6 @@ Components.Window = (function()
 		Window._TabModule = TabModule
 function Window:AddTab(TabConfig)
 			local tab = TabModule:New(TabConfig.Title, TabConfig.Icon, Window.TabHolder)
-			if TabConfig.SaveManager == true then
-				task.defer(function()
-					if Library.SaveManager then
-						Library.SaveManager:EnableAutoSave()
-					end
-				end)
-			end
 			if TabModule.TabCount == 1 then
 				TabModule:SelectTab(1)
 			end
@@ -6299,8 +6296,6 @@ ElementsTable.Slider = (function()
 			},
 		})
 
-
-
 		local SliderInner = New("Frame", {
 			Size = UDim2.new(1, 0, 0, 8),
 			AnchorPoint = Vector2.new(1, 0.5),
@@ -7174,7 +7169,6 @@ NotificationModule:Init(GUI)
 
 local New = Creator.New
 
-
 local Elements = {}
 Elements.__index = Elements
 Elements.__namecall = function(Table, Key, ...)
@@ -7191,8 +7185,15 @@ for _, ElementComponent in pairs(ElementsTable) do
 			Config = Config or {}
 		end
 		local tabName = self.Name or self.TabName or "Unknown"
-		-- Sempre usa TabName como prefixo para garantir unicidade entre tabs
-		local uniqueIdx = tabName .. "_" .. IdxStr
+		local baseIdx = tabName .. "_" .. IdxStr
+
+		local uniqueIdx = baseIdx
+		local counter = 2
+		while Library.Options[uniqueIdx] do
+			uniqueIdx = baseIdx .. "_" .. counter
+			counter = counter + 1
+		end
+
 		ElementComponent.Container = self.Container
 		ElementComponent.Type = self.Type
 		ElementComponent.ScrollFrame = self.ScrollFrame
@@ -7203,18 +7204,31 @@ for _, ElementComponent in pairs(ElementsTable) do
 		if eType == "Button" or eType == "Paragraph" then
 			return ElementComponent:New(Config)
 		else
-			return ElementComponent:New(uniqueIdx, Config)
+			local result = ElementComponent:New(uniqueIdx, Config)
+			if result and result.Callback and SaveManager and SaveManager.Parser and SaveManager.Parser[result.Type] then
+				if not result._autoSaveHooked then
+					result._autoSaveHooked = true
+					local orig = result.Callback
+					result.Callback = function(...)
+						if orig then pcall(orig, ...) end
+						if SaveManager and not SaveManager._saveDebounce then
+							SaveManager._saveDebounce = true
+							task.delay(1.5, function()
+								SaveManager._saveDebounce = false
+								SaveManager:Save()
+							end)
+						end
+					end
+				end
+			end
+			return result
 		end
 	end
 end
 
-
-
 local SaveManager = {
 	Folder = "FluentSettings",
 	Ignore = {},
-	Options = Library.Options,
-	_autoSaveEnabled = false,
 	_saveDebounce = false,
 	Parser = {
 		Toggle = {
@@ -7290,7 +7304,6 @@ function SaveManager:GetSaveTitle()
 	return title or "Config"
 end
 
--- Monta data agrupada por Tab, removendo o prefixo "TabName_" das chaves
 function SaveManager:BuildData()
 	local data = { __theme = Library.Theme }
 	for idx, option in next, Library.Options do
@@ -7299,7 +7312,6 @@ function SaveManager:BuildData()
 			if not data[tabName] then
 				data[tabName] = {}
 			end
-			-- Remove o prefixo "TabName_" do idx para salvar o nome limpo
 			local prefix = tabName .. "_"
 			local cleanIdx = idx:sub(1, #prefix) == prefix and idx:sub(#prefix + 1) or idx
 			data[tabName][cleanIdx] = self.Parser[option.Type].Save(idx, option)
@@ -7330,16 +7342,13 @@ function SaveManager:Load()
 	local success, decoded = pcall(httpService.JSONDecode, httpService, result)
 	if not success then return false, decoded end
 	if type(decoded) ~= "table" then return false, "Invalid data" end
-	-- Carrega tema
 	if decoded.__theme and type(decoded.__theme) == "string" then
 		Library:SetTheme(decoded.__theme)
 	end
-	-- Carrega opções agrupadas por tab
 	for tabName, tabData in pairs(decoded) do
 		if tabName ~= "__theme" and type(tabData) == "table" then
 			for idx, optData in pairs(tabData) do
 				if type(optData) == "table" and optData.type and self.Parser[optData.type] then
-					-- Tenta o idx com prefixo primeiro (interno), depois sem prefixo
 					local internalIdx = tabName .. "_" .. idx
 					local target = Library.Options[internalIdx] or Library.Options[idx]
 					if target then
@@ -7368,40 +7377,36 @@ function SaveManager:ClearSave()
 	return true
 end
 
-function SaveManager:AutoSave()
-	if self._saveDebounce then return end
-	self._saveDebounce = true
-	task.delay(1.5, function()
-		self._saveDebounce = false
-		self:Save()
-	end)
-end
+SaveManager:BuildFolderTree()
 
-function SaveManager:LoadAutoloadConfig()
-	self:Load()
-end
-
-function SaveManager:EnableAutoSave()
-	self._autoSaveEnabled = true
-	self:BuildFolderTree()
-	task.defer(function()
-		self:LoadAutoloadConfig()
-		task.wait(2)
-		for idx, option in next, Library.Options do
-			if not self.Ignore[idx] and self.Parser[option.Type] then
+local function _hookAutoSave()
+	for idx, option in next, Library.Options do
+		if not SaveManager.Ignore[idx] and SaveManager.Parser[option.Type] then
+			if not option._autoSaveHooked then
+				option._autoSaveHooked = true
 				local orig = option.Callback
 				option.Callback = function(...)
 					if orig then pcall(orig, ...) end
-					self:AutoSave()
+					if not SaveManager._saveDebounce then
+						SaveManager._saveDebounce = true
+						task.delay(1.5, function()
+							SaveManager._saveDebounce = false
+							SaveManager:Save()
+						end)
+					end
 				end
 			end
 		end
-	end)
+	end
 end
 
-SaveManager:BuildFolderTree()
-Library.SaveManager = SaveManager
+task.defer(function()
+	task.wait(2)
+	SaveManager:Load()
+	_hookAutoSave()
+end)
 
+Library.SaveManager = SaveManager
 Library.Elements = Elements
 
 if RunService:IsStudio() then
@@ -7457,7 +7462,7 @@ Library.CreateWindow = function(self, Config)
 	table.insert(Library.Windows, Window)
 
 	Window.AcrylicBlur = function(self, Value)
-		Library:AcrylicBlur(Value)
+		Library:ToggleAcrylic(Value)
 	end
 
 	Library:SetTheme(Config.Theme)
@@ -7610,43 +7615,6 @@ function Library:CreateMinimizer(Config)
 	self.Minimizer = holder
 	return holder
 end
-function Library:AcrylicBlur(Value)
-	if not Library.Window then return end
-	local paint = Library.Window.AcrylicPaint
-	if not paint or not paint.Frame then return end
-	Library._blurEnabled = Value
-	local bg = paint.Frame:FindFirstChild("Background")
-	if Value then
-		for _, child in ipairs(paint.Frame:GetChildren()) do
-			if child:IsA("Frame") or child:IsA("ImageLabel") then
-				if child.Name ~= "Background" then
-					child.Visible = true
-				end
-			end
-		end
-		if bg then
-			bg.BackgroundTransparency = Library._transparencyEnabled and 0.35 or 0.45
-		end
-		if paint.Model then
-			paint.Model.Transparency = 0.98
-		end
-	else
-		for _, child in ipairs(paint.Frame:GetChildren()) do
-			if child:IsA("ImageLabel") then
-				if child.Name ~= "Background" then
-					child.Visible = false
-				end
-			end
-		end
-		if bg then
-			bg.BackgroundTransparency = Library._transparencyEnabled and 0.35 or 0
-		end
-		if paint.Model then
-			paint.Model.Transparency = 1
-		end
-	end
-end
-
 function Library:SetTheme(Value)
 	if Library.Window and table.find(Library.Themes, Value) then
 		Library.Theme = Value
@@ -7670,11 +7638,38 @@ function Library:ToggleAcrylic(Value)
 	if Library.Window then
 		if Library.UseAcrylic then
 			Library.Acrylic = Value
-			if Library.Window.AcrylicPaint and Library.Window.AcrylicPaint.Model then
-				if Value and Library._blurEnabled ~= false then
-					Library.Window.AcrylicPaint.Model.Transparency = 0.95
+			Library._blurEnabled = Value
+			local paint = Library.Window.AcrylicPaint
+			if paint and paint.Frame then
+				local bg = paint.Frame:FindFirstChild("Background")
+				if Value then
+					for _, child in ipairs(paint.Frame:GetChildren()) do
+						if child:IsA("Frame") or child:IsA("ImageLabel") then
+							if child.Name ~= "Background" then
+								child.Visible = true
+							end
+						end
+					end
+					if bg then
+						bg.BackgroundTransparency = Library._transparencyEnabled and 0.35 or 0.45
+					end
+					if paint.Model then
+						paint.Model.Transparency = 0.98
+					end
 				else
-					Library.Window.AcrylicPaint.Model.Transparency = 1
+					for _, child in ipairs(paint.Frame:GetChildren()) do
+						if child:IsA("ImageLabel") then
+							if child.Name ~= "Background" then
+								child.Visible = false
+							end
+						end
+					end
+					if bg then
+						bg.BackgroundTransparency = Library._transparencyEnabled and 0.35 or 0
+					end
+					if paint.Model then
+						paint.Model.Transparency = 1
+					end
 				end
 			end
 		end
@@ -7696,34 +7691,23 @@ function Library:ToggleTransparency(Value)
 	end
 end
 function Library:SetWindowTransparency(Value)
-	if Library.Window and Library.UseAcrylic then
-		Value = math.clamp(Value, 0, 3)
-		if Library.Theme == "Glass" then
-			local glassTransparency = 0.8 + (Value * 0.05)
-			if Value > 1 then
-				glassTransparency = 0.85 + ((Value - 1) * 0.04)
+	if not Library.Window then return end
+	Value = math.clamp(Value or 0, 0, 1)
+	local paint = Library.Window.AcrylicPaint
+	if paint and paint.Frame then
+		local bg = paint.Frame:FindFirstChild("Background")
+		if bg then
+			bg.BackgroundTransparency = Value
+		end
+		if paint.Model then
+			paint.Model.Transparency = 0.98 - (Value * 0.48)
+		end
+		for _, child in ipairs(paint.Frame:GetChildren()) do
+			if child:IsA("Frame") and child.Name ~= "Background" then
+				child.BackgroundTransparency = math.clamp(child.BackgroundTransparency + Value * 0.3, 0, 1)
+			elseif child:IsA("ImageLabel") then
+				child.ImageTransparency = math.clamp(0.9 + Value * 0.09, 0, 1)
 			end
-			if Value > 2 then
-				glassTransparency = 0.93 + ((Value - 2) * 0.04)
-			end
-			Library.Window.AcrylicPaint.Model.Transparency = math.min(glassTransparency, 0.99)
-			local backgroundTransparency = 0.7 + (Value * 0.08)
-			if Value > 1 then
-				backgroundTransparency = 0.78 + ((Value - 1) * 0.07)
-			end
-			if Value > 2 then
-				backgroundTransparency = 0.85 + ((Value - 2) * 0.1)
-			end
-			Library.Window.AcrylicPaint.Frame.Background.BackgroundTransparency = math.min(backgroundTransparency, 0.99)
-			Library.NotificationTransparency = Value
-			for _, notification in pairs(Library.ActiveNotifications or {}) do
-				if notification and notification.ApplyTransparency then
-					notification:ApplyTransparency()
-				end
-			end
-		else
-			Library.Window.AcrylicPaint.Model.Transparency = 0.98
-			Library.Window.AcrylicPaint.Frame.Background.BackgroundTransparency = Value * 0.3
 		end
 	end
 end
