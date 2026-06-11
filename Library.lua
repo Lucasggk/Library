@@ -3117,6 +3117,18 @@ Components.Tab = (function()
 			return
 		end
 
+		if Library.OpenFrames then
+			for _, frame in ipairs(Library.OpenFrames) do
+				if frame.Visible then
+					frame.Visible = false
+					local dd = Library._OpenDropdowns and Library._OpenDropdowns[frame]
+					if dd then
+						dd.Opened = false
+					end
+				end
+			end
+		end
+
 		local function hideContainer(container, tabObj)
 			if container then
 				container.Visible = false
@@ -5574,6 +5586,8 @@ ElementsTable.Dropdown = (function()
 			}),
 		})
 		table.insert(Library.OpenFrames, DropdownHolderCanvas)
+		Library._OpenDropdowns = Library._OpenDropdowns or {}
+		Library._OpenDropdowns[DropdownHolderCanvas] = Dropdown
 
 		local windowRoot = nil
 		if Library.Window and Library.Window.Root then
@@ -5794,7 +5808,11 @@ ElementsTable.Dropdown = (function()
 				end)
 			end
 		else
-			Creator.AddSignal(DropdownInner:GetPropertyChangedSignal("AbsolutePosition"), RecalculateListPosition)
+			Creator.AddSignal(DropdownInner:GetPropertyChangedSignal("AbsolutePosition"), function()
+				if Dropdown.Opened then
+					RecalculateListPosition()
+				end
+			end)
 			if windowRoot then
 				Creator.AddSignal(windowRoot:GetPropertyChangedSignal("AbsolutePosition"), function()
 					if Dropdown.Opened then
@@ -5850,6 +5868,7 @@ ElementsTable.Dropdown = (function()
 		end)
 
 		Creator.AddSignal(UserInputService.InputBegan, function(Input)
+			if not Dropdown.Opened then return end
 			if
 				Input.UserInputType == Enum.UserInputType.MouseButton1
 				or Input.UserInputType == Enum.UserInputType.Touch
@@ -5881,6 +5900,10 @@ ElementsTable.Dropdown = (function()
 			for _, frame in ipairs(Library.OpenFrames) do
 				if frame ~= DropdownHolderCanvas and frame.Visible then
 					frame.Visible = false
+					local dd = Library._OpenDropdowns and Library._OpenDropdowns[frame]
+					if dd then
+						dd.Opened = false
+					end
 				end
 			end
 			if SearchBox and not Dropdown.KeepSearch then
@@ -7288,6 +7311,9 @@ function SaveManager:BuildFolderTree()
 end
 
 function SaveManager:GetSaveTitle()
+	if Library.Window and Library.Window.SaveFile and Library.Window.SaveFile ~= "" then
+		return Library.Window.SaveFile
+	end
 	local title = nil
 	if Library.Window then
 		if Library.Window.Title then
@@ -7460,6 +7486,10 @@ Library.CreateWindow = function(self, Config)
 	})
 	Library.Window = Window
 	table.insert(Library.Windows, Window)
+
+	if Config.SaveFile and Config.SaveFile ~= "" then
+		Window.SaveFile = Config.SaveFile
+	end
 
 	Window.AcrylicBlur = function(self, Value)
 		Library:ToggleAcrylic(Value)
