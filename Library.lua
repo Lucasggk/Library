@@ -5065,50 +5065,6 @@ Components.Window = (function()
 			end
 		end
 
-		function Window:SetBackgroundTransparency(transparency)
-			transparency = transparency or 0.5
-			Window.BackgroundTransparency = transparency
-		end
-
-		function Window:SetBackgroundImageTransparency(transparency)
-			transparency = transparency or 0.5
-			Window.BackgroundImageTransparency = transparency
-			if Window.BackgroundImage then
-				Window.BackgroundImage.ImageTransparency = math.max(0, math.min(1, transparency))
-			end
-			if Window.AcrylicPaint and Window.AcrylicPaint.Frame then
-				if transparency <= 0.1 then
-					Window.AcrylicPaint.Frame.BackgroundTransparency = 1
-					if Window.AcrylicPaint.Model then
-						Window.AcrylicPaint.Model.Transparency = 1
-					end
-					local function makeTransparent(obj)
-						if obj:IsA("Frame") then
-							obj.BackgroundTransparency = 1
-						elseif obj:IsA("ImageLabel") then
-							obj.ImageTransparency = 1
-						end
-						for _, child in ipairs(obj:GetChildren()) do
-							if not child:IsA("UICorner") and not child:IsA("UIGradient") and not child:IsA("UIStroke") and not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
-								makeTransparent(child)
-							end
-						end
-					end
-					makeTransparent(Window.AcrylicPaint.Frame)
-				elseif transparency < 0.3 then
-					Window.AcrylicPaint.Frame.BackgroundTransparency = 0.99
-					if Window.AcrylicPaint.Model then
-						Window.AcrylicPaint.Model.Transparency = 0.99
-					end
-				else
-					Window.AcrylicPaint.Frame.BackgroundTransparency = 0.98
-					if Window.AcrylicPaint.Model then
-						Window.AcrylicPaint.Model.Transparency = 0.98
-					end
-				end
-			end
-		end
-
 		local DialogModule = Components.Dialog:Init(Window)
 		function Window:Dialog(Config)
 			local Dialog = DialogModule:Create()
@@ -7492,7 +7448,7 @@ Library.CreateWindow = function(self, Config)
 	end
 
 	Window.AcrylicBlur = function(self, Value)
-		Library:ToggleAcrylic(Value)
+		Library:SetAcrylic(Value)
 	end
 
 	Library:SetTheme(Config.Theme)
@@ -7649,9 +7605,6 @@ function Library:SetTheme(Value)
 	if Library.Window and table.find(Library.Themes, Value) then
 		Library.Theme = Value
 		Creator.UpdateTheme()
-		if Value == "Glass" then
-			Library:SetWindowTransparency(0.9)
-		end
 	end
 end
 function Library:Destroy()
@@ -7664,48 +7617,61 @@ function Library:Destroy()
 		Library.GUI:Destroy()
 	end
 end
-function Library:ToggleAcrylic(Value)
-	if Library.Window then
-		if Library.UseAcrylic then
-			Library.Acrylic = Value
-			Library._blurEnabled = Value
-			local paint = Library.Window.AcrylicPaint
-			if paint and paint.Frame then
-				local bg = paint.Frame:FindFirstChild("Background")
-				if Value then
-					for _, child in ipairs(paint.Frame:GetChildren()) do
-						if child:IsA("Frame") or child:IsA("ImageLabel") then
-							if child.Name ~= "Background" then
-								child.Visible = true
-							end
-						end
-					end
-					if bg then
-						bg.BackgroundTransparency = Library._transparencyEnabled and 0.35 or 0.45
-					end
-					if paint.Model then
-						paint.Model.Transparency = 0.98
-					end
-				else
-					for _, child in ipairs(paint.Frame:GetChildren()) do
-						if child:IsA("ImageLabel") then
-							if child.Name ~= "Background" then
-								child.Visible = false
-							end
-						end
-					end
-					if bg then
-						bg.BackgroundTransparency = Library._transparencyEnabled and 0.35 or 0
-					end
-					if paint.Model then
-						paint.Model.Transparency = 1
-					end
+function Library:SetAcrylic(Value)
+	if not Library.Window then return end
+	Library.Acrylic = Value
+	Library._blurEnabled = Value
+
+	if Value and not Acrylic.Enable then
+		Acrylic.init()
+	end
+
+	local paint = Library.Window.AcrylicPaint
+	if not paint or not paint.Frame then return end
+
+	if Value then
+		if not paint.Model then
+			local Blur = Acrylic.AcrylicBlur()
+			Blur.Frame.Parent = paint.Frame
+			paint.Model = Blur.Model
+			paint.AddParent = Blur.AddParent
+			paint.SetVisibility = Blur.SetVisibility
+			paint.AddParent(Library.Window.Root)
+		end
+		if Acrylic.Enable then Acrylic.Enable() end
+		local bg = paint.Frame:FindFirstChild("Background")
+		for _, child in ipairs(paint.Frame:GetChildren()) do
+			if child:IsA("Frame") or child:IsA("ImageLabel") then
+				if child.Name ~= "Background" then
+					child.Visible = true
 				end
 			end
 		end
+		if bg then
+			bg.BackgroundTransparency = 0.45
+		end
+		if paint.Model then
+			paint.Model.Transparency = 0.98
+		end
+	else
+		if Acrylic.Disable then Acrylic.Disable() end
+		local bg = paint.Frame:FindFirstChild("Background")
+		for _, child in ipairs(paint.Frame:GetChildren()) do
+			if child:IsA("ImageLabel") then
+				if child.Name ~= "Background" then
+					child.Visible = false
+				end
+			end
+		end
+		if bg then
+			bg.BackgroundTransparency = 0
+		end
+		if paint.Model then
+			paint.Model.Transparency = 1
+		end
 	end
 end
-function Library:ToggleTransparency(Value)
+function Library:SetTransparency(Value)
 	if Library.Window then
 		Library._transparencyEnabled = Value
 		local paint = Library.Window.AcrylicPaint
@@ -7716,27 +7682,6 @@ function Library:ToggleTransparency(Value)
 				bg.BackgroundTransparency = 0.35
 			else
 				bg.BackgroundTransparency = Library._blurEnabled and 0.45 or 0
-			end
-		end
-	end
-end
-function Library:SetWindowTransparency(Value)
-	if not Library.Window then return end
-	Value = math.clamp(Value or 0, 0, 1)
-	local paint = Library.Window.AcrylicPaint
-	if paint and paint.Frame then
-		local bg = paint.Frame:FindFirstChild("Background")
-		if bg then
-			bg.BackgroundTransparency = Value
-		end
-		if paint.Model then
-			paint.Model.Transparency = 0.98 - (Value * 0.48)
-		end
-		for _, child in ipairs(paint.Frame:GetChildren()) do
-			if child:IsA("Frame") and child.Name ~= "Background" then
-				child.BackgroundTransparency = math.clamp(child.BackgroundTransparency + Value * 0.3, 0, 1)
-			elseif child:IsA("ImageLabel") then
-				child.ImageTransparency = math.clamp(0.9 + Value * 0.09, 0, 1)
 			end
 		end
 	end
