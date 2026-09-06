@@ -1812,7 +1812,7 @@ Library.MiniMessageToRichText = MiniMessageToRichText
 local New = Creator.New
 
 local GUI = New("ScreenGui", {
-	Parent = LocalPlayer:WaitForChild("PlayerGui"),
+	Parent = (gethui and gethui()) or game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui"),
 })
 Library.GUI = GUI
 ProtectGui(GUI)
@@ -3921,7 +3921,7 @@ Components.TitleBar = (function()
 			Button.Frame = New("TextButton", {
 				Size = UDim2.new(0, 28, 0, 28),
 				AnchorPoint = Vector2.new(1, 0.5),
-				BackgroundTransparency = 0.92,
+				BackgroundTransparency = 1,
 				Parent = Parent,
 				Position = Pos,
 				Text = "",
@@ -3936,13 +3936,13 @@ Components.TitleBar = (function()
 				iconChild,
 			})
 
-			local Motor, SetTransparency = Creator.SpringMotor(0.92, Button.Frame, "BackgroundTransparency")
+			local Motor, SetTransparency = Creator.SpringMotor(1, Button.Frame, "BackgroundTransparency")
 
 			AddSignal(Button.Frame.MouseEnter, function()
 				SetTransparency(0.80)
 			end)
 			AddSignal(Button.Frame.MouseLeave, function()
-				SetTransparency(0.92, true)
+				SetTransparency(1, true)
 			end)
 			AddSignal(Button.Frame.MouseButton1Down, function()
 				SetTransparency(0.70)
@@ -7383,7 +7383,6 @@ local function _hookAutoSave()
 end
 
 task.defer(function()
-	task.wait(2)
 	SaveManager:Load()
 	_hookAutoSave()
 end)
