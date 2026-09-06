@@ -2596,7 +2596,7 @@ Components.Tab = (function()
 
 		Tab.Frame = New("TextButton", {
 			Size = UDim2.new(1, 0, 0, 34),
-			BackgroundTransparency = 0.92,
+			BackgroundTransparency = 1,
 			Parent = Parent,
 			ZIndex = 10,
 			ThemeTag = {
@@ -2702,13 +2702,13 @@ Components.Tab = (function()
 			Tab.ContainerFrame.CanvasSize = UDim2.new(0, 0, 0, ContainerLayout.AbsoluteContentSize.Y + 2)
 		end)
 
-		Tab.Motor, Tab.SetTransparency = Creator.SpringMotor(0.92, Tab.Frame, "BackgroundTransparency")
+		Tab.Motor, Tab.SetTransparency = Creator.SpringMotor(1, Tab.Frame, "BackgroundTransparency")
 
 		Creator.AddSignal(Tab.Frame.MouseEnter, function()
 			Tab.SetTransparency(Tab.Selected and 0.85 or 0.87)
 		end)
 		Creator.AddSignal(Tab.Frame.MouseLeave, function()
-			Tab.SetTransparency(Tab.Selected and 0.89 or 0.92)
+			Tab.SetTransparency(Tab.Selected and 0.89 or 1)
 		end)
 		Creator.AddSignal(Tab.Frame.MouseButton1Down, function()
 			Tab.SetTransparency(0.92)
@@ -2785,7 +2785,7 @@ Components.Tab = (function()
 			local SubTabButton = New("TextButton", {
 				Size = UDim2.new(0, 0, 0, 32),
 				AutomaticSize = Enum.AutomaticSize.X,
-				BackgroundTransparency = 0.92,
+				BackgroundTransparency = 1,
 				Parent = self.SubTabHolder,
 				Text = "",
 				ThemeTag = {
@@ -2903,7 +2903,7 @@ Components.Tab = (function()
 				end
 			end)
 
-			local SubTabMotor, SubTabSetTransparency = Creator.SpringMotor(0.92, SubTabButton, "BackgroundTransparency")
+			local SubTabMotor, SubTabSetTransparency = Creator.SpringMotor(1, SubTabButton, "BackgroundTransparency")
 			local SubTabStroke = SubTabButton:FindFirstChild("UIStroke")
 
 			local function UpdateSubTabAppearance()
@@ -2913,7 +2913,7 @@ Components.Tab = (function()
 						SubTabStroke.Transparency = 0
 					end
 				else
-					SubTabSetTransparency(0.92)
+					SubTabSetTransparency(1)
 					if SubTabStroke then
 						SubTabStroke.Transparency = 1
 					end
@@ -2931,7 +2931,7 @@ Components.Tab = (function()
 			end)
 
 			Creator.AddSignal(SubTabButton.MouseButton1Down, function()
-				SubTabSetTransparency(0.92)
+				SubTabSetTransparency(0.85)
 			end)
 
 			Creator.AddSignal(SubTabButton.MouseButton1Up, function()
@@ -3176,7 +3176,7 @@ Components.Tab = (function()
 		TabModule.CurrentAnimationTab = Tab
 
 		for _, TabObject in next, TabModule.Tabs do
-			TabObject.SetTransparency(0.92)
+			TabObject.SetTransparency(1)
 			TabObject.Selected = false
 		end
 		TabModule.Tabs[Tab].SetTransparency(0.89)
