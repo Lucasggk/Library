@@ -13,7 +13,7 @@ local Mobile = not RunService:IsStudio() and table.find({Enum.Platform.IOS, Enum
 local RenderStepped = RunService.RenderStepped
 
 local ProtectGui = protectgui or (syn and syn.protect_gui) or function() end
-local ParentUi = game.Players.LocalPlayer:FindFirstChild("PlayerGui") -- gethui and gethui() and game:GetService("CoreGui")
+local ParentUi = LocalPlayer:FindFirstChild("PlayerGui")
 
 local Themes = {
 	Names = {
