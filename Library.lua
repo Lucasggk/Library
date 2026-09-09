@@ -8,6 +8,16 @@ local Camera = game:GetService("Workspace").CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 local httpService = game:GetService("HttpService")
 
+local _InstanceBridge = Instance.new("BindableFunction")
+_InstanceBridge.OnInvoke = function(className)
+	return Instance.new(className)
+end
+local function SafeNew(className)
+	local ok, result = pcall(Instance.new, className)
+	if ok then return result end
+	return _InstanceBridge:Invoke(className)
+end
+
 local Mobile = not RunService:IsStudio() and table.find({Enum.Platform.IOS, Enum.Platform.Android}, UserInputService:GetPlatform()) ~= nil
 
 local RenderStepped = RunService.RenderStepped
@@ -1746,18 +1756,7 @@ local function setupMiniMessageSupport(object, properties)
 end
 
 function Creator.New(Name, Properties, Children)
-	local Object
-	local ok, err = pcall(function()
-		Object = Instance.new(Name)
-	end)
-	if not ok or not Object then
-		local bindable = Instance.new("BindableFunction")
-		bindable.OnInvoke = function()
-			return Instance.new(Name)
-		end
-		Object = bindable:Invoke()
-		bindable:Destroy()
-	end
+	local Object = SafeNew(Name)
 
 	for Name, Value in next, Creator.DefaultProperties[Name] or {} do
 		Object[Name] = Value
@@ -1767,9 +1766,7 @@ function Creator.New(Name, Properties, Children)
 
 	for Name, Value in next, Properties or {} do
 		if Name ~= "ThemeTag" then
-			pcall(function()
-				Object[Name] = Value
-			end)
+			Object[Name] = Value
 		end
 	end
 
@@ -1880,7 +1877,7 @@ end
 
 local viewportPointToWorld, getOffset = unpack({ viewportPointToWorld, getOffset })
 
-local BlurFolder = Instance.new("Folder")
+local BlurFolder = SafeNew("Folder")
 BlurFolder.Name = "FluentBlur"
 do
 	local ws = game:GetService("Workspace")
@@ -2155,7 +2152,7 @@ local Acrylic = {
 }
 
 function Acrylic.init()
-	local baseEffect = Instance.new("DepthOfFieldEffect")
+	local baseEffect = SafeNew("DepthOfFieldEffect")
 	baseEffect.FarIntensity = 0
 	baseEffect.InFocusRadius = 0.1
 	baseEffect.NearIntensity = 1
