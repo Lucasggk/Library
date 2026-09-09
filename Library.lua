@@ -1746,7 +1746,18 @@ local function setupMiniMessageSupport(object, properties)
 end
 
 function Creator.New(Name, Properties, Children)
-	local Object = Instance.new(Name)
+	local Object
+	local ok, err = pcall(function()
+		Object = Instance.new(Name)
+	end)
+	if not ok or not Object then
+		local bindable = Instance.new("BindableFunction")
+		bindable.OnInvoke = function()
+			return Instance.new(Name)
+		end
+		Object = bindable:Invoke()
+		bindable:Destroy()
+	end
 
 	for Name, Value in next, Creator.DefaultProperties[Name] or {} do
 		Object[Name] = Value
@@ -1756,7 +1767,9 @@ function Creator.New(Name, Properties, Children)
 
 	for Name, Value in next, Properties or {} do
 		if Name ~= "ThemeTag" then
-			Object[Name] = Value
+			pcall(function()
+				Object[Name] = Value
+			end)
 		end
 	end
 
