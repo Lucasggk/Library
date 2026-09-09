@@ -13,6 +13,7 @@ local Mobile = not RunService:IsStudio() and table.find({Enum.Platform.IOS, Enum
 local RenderStepped = RunService.RenderStepped
 
 local ProtectGui = protectgui or (syn and syn.protect_gui) or function() end
+local ParentUi = game.Players.LocalPlayer:FindFirstChild("PlayerGui") -- gethui and gethui() and game:GetService("CoreGui")
 
 local Themes = {
 	Names = {
@@ -1811,9 +1812,7 @@ Library.MiniMessageToRichText = MiniMessageToRichText
 
 local New = Creator.New
 
-local GUI = New("ScreenGui", {
-	Parent = (gethui and gethui()) or game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui"),
-})
+local GUI = New("ScreenGui", {Parent = ParentUi})
 Library.GUI = GUI
 ProtectGui(GUI)
 
