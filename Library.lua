@@ -2874,8 +2874,8 @@ Components.Tab = (function()
 					SortOrder = Enum.SortOrder.LayoutOrder,
 				}),
 				New("UIPadding", {
-					PaddingRight = UDim.new(0, 10),
-					PaddingLeft = UDim.new(0, 1),
+					PaddingRight = UDim.new(0, 0),
+					PaddingLeft = UDim.new(0, 10),
 					PaddingTop = UDim.new(0, 1),
 					PaddingBottom = UDim.new(0, 1),
 				}),
@@ -3031,7 +3031,7 @@ Components.Tab = (function()
 					end
 				end
 
-				OldContainer.Visible = true
+				OldContainer.Visible = false
 				OldContainer.Position = UDim2.fromOffset(0, 0)
 				pcall(function()
 					OldSubTab.XMotor:setGoal(Instant(0))
@@ -3039,40 +3039,21 @@ Components.Tab = (function()
 				end)
 
 				NewContainer.Visible = true
+				NewContainer.GroupTransparency = 0
 				NewContainer.Position = UDim2.fromOffset(Direction * SlideDistance, 0)
 				pcall(function()
 					NewSubTab.XMotor:setGoal(Instant(Direction * SlideDistance))
-					NewSubTab.TransparencyMotor:setGoal(Instant(1))
+					NewSubTab.TransparencyMotor:setGoal(Instant(0))
 				end)
 
 				task.wait()
 
 				pcall(function()
-					OldSubTab.XMotor:setGoal(Spring(-Direction * SlideDistance, { frequency = 10, dampingRatio = 0.85 }))
-					OldSubTab.TransparencyMotor:setGoal(Spring(1, { frequency = 10, dampingRatio = 0.85 }))
-				end)
-
-				pcall(function()
 					NewSubTab.XMotor:setGoal(Spring(0, { frequency = 10, dampingRatio = 0.85 }))
-					NewSubTab.TransparencyMotor:setGoal(Spring(0, { frequency = 10, dampingRatio = 0.85 }))
 				end)
 
 				task.spawn(function()
 					task.wait(0.5)
-					if self.SelectedSubTab == SubTabIndex and self.SubTabs[PreviousSubTab] then
-						local OldContainer = self.SubTabs[PreviousSubTab].ContainerAnim
-						local OldSubTab = self.SubTabs[PreviousSubTab]
-						if OldContainer and OldContainer.Parent then
-							OldContainer.Visible = false
-							OldContainer.Position = UDim2.fromOffset(0, 0)
-						end
-						if OldSubTab and OldSubTab.XMotor and OldSubTab.TransparencyMotor then
-							pcall(function()
-								OldSubTab.XMotor:setGoal(Instant(0))
-								OldSubTab.TransparencyMotor:setGoal(Instant(0))
-							end)
-						end
-					end
 				end)
 			else
 				for idx, Container in next, self.SubTabContainers do
@@ -3133,7 +3114,6 @@ Components.Tab = (function()
 				container.Visible = false
 				container.Position = UDim2.fromOffset(0, 0)
 				container.GroupTransparency = 0
-				pcall(function() container.Active = false end)
 			end
 			if tabObj and tabObj.ContainerXMotor and tabObj.ContainerTransparencyMotor then
 				pcall(function()
@@ -3201,53 +3181,31 @@ Components.Tab = (function()
 				return
 			end
 
-			OldContainer.Visible = true
+			OldContainer.Visible = false
 			OldContainer.Position = UDim2.fromOffset(0, 0)
 			OldContainer.GroupTransparency = 0
-			pcall(function() OldContainer.Active = false end)
 			pcall(function()
 				OldTab.ContainerXMotor:setGoal(Instant(0))
 				OldTab.ContainerTransparencyMotor:setGoal(Instant(0))
 			end)
 
 			NewContainer.Visible = true
+			NewContainer.GroupTransparency = 0
 			NewContainer.Position = UDim2.fromOffset(Direction * SlideDistance, 0)
-			NewContainer.GroupTransparency = 1
-			pcall(function() NewContainer.Active = true end)
 			pcall(function()
 				NewTab.ContainerXMotor:setGoal(Instant(Direction * SlideDistance))
-				NewTab.ContainerTransparencyMotor:setGoal(Instant(1))
+				NewTab.ContainerTransparencyMotor:setGoal(Instant(0))
 			end)
 
 			task.wait()
 
 			pcall(function()
-				OldTab.ContainerXMotor:setGoal(Spring(-Direction * SlideDistance, { frequency = 10, dampingRatio = 0.85 }))
-				OldTab.ContainerTransparencyMotor:setGoal(Spring(1, { frequency = 10, dampingRatio = 0.85 }))
-			end)
-
-			pcall(function()
 				NewTab.ContainerXMotor:setGoal(Spring(0, { frequency = 10, dampingRatio = 0.85 }))
-				NewTab.ContainerTransparencyMotor:setGoal(Spring(0, { frequency = 10, dampingRatio = 0.85 }))
 			end)
 
 			TabModule.AnimationTask = task.spawn(function()
 				task.wait(0.5)
-				if TabModule.CurrentAnimationTab == Tab and TabModule.Tabs[PreviousTab] then
-					local OldContainer = TabModule.Tabs[PreviousTab].ContainerAnim
-					local OldTab = TabModule.Tabs[PreviousTab]
-					if OldContainer and OldContainer.Parent then
-						OldContainer.Visible = false
-						OldContainer.Position = UDim2.fromOffset(0, 0)
-						OldContainer.GroupTransparency = 0
-						pcall(function() OldContainer.Active = false end)
-					end
-					if OldTab and OldTab.ContainerXMotor and OldTab.ContainerTransparencyMotor then
-						pcall(function()
-							OldTab.ContainerXMotor:setGoal(Instant(0))
-							OldTab.ContainerTransparencyMotor:setGoal(Instant(0))
-						end)
-					end
+				if TabModule.CurrentAnimationTab == Tab then
 					TabModule.AnimationTask = nil
 				end
 			end)
