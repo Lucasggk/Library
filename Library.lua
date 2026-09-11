@@ -2744,8 +2744,8 @@ Components.Tab = (function()
 				})
 
 				self.SubTabHolder = New("ScrollingFrame", {
-					Size = UDim2.new(1, -20, 0, 40),
-					Position = UDim2.fromOffset(1, 8),
+					Size = UDim2.new(1, 0, 0, 40),
+					Position = UDim2.fromOffset(0, 8),
 					BackgroundTransparency = 1,
 					Parent = self.ContainerFrame,
 					ScrollingDirection = Enum.ScrollingDirection.X,
@@ -2769,8 +2769,8 @@ Components.Tab = (function()
 				end)
 
 				local SubTabContainerHolder = New("Frame", {
-					Size = UDim2.new(1, -11, 1, -56),
-					Position = UDim2.fromOffset(1, 48),
+					Size = UDim2.new(1, 0, 1, -56),
+					Position = UDim2.fromOffset(0, 48),
 					BackgroundTransparency = 1,
 					ClipsDescendants = true,
 					Parent = self.ContainerFrame,
@@ -3133,6 +3133,7 @@ Components.Tab = (function()
 				container.Visible = false
 				container.Position = UDim2.fromOffset(0, 0)
 				container.GroupTransparency = 0
+				pcall(function() container.Active = false end)
 			end
 			if tabObj and tabObj.ContainerXMotor and tabObj.ContainerTransparencyMotor then
 				pcall(function()
@@ -3203,6 +3204,7 @@ Components.Tab = (function()
 			OldContainer.Visible = true
 			OldContainer.Position = UDim2.fromOffset(0, 0)
 			OldContainer.GroupTransparency = 0
+			pcall(function() OldContainer.Active = false end)
 			pcall(function()
 				OldTab.ContainerXMotor:setGoal(Instant(0))
 				OldTab.ContainerTransparencyMotor:setGoal(Instant(0))
@@ -3211,6 +3213,7 @@ Components.Tab = (function()
 			NewContainer.Visible = true
 			NewContainer.Position = UDim2.fromOffset(Direction * SlideDistance, 0)
 			NewContainer.GroupTransparency = 1
+			pcall(function() NewContainer.Active = true end)
 			pcall(function()
 				NewTab.ContainerXMotor:setGoal(Instant(Direction * SlideDistance))
 				NewTab.ContainerTransparencyMotor:setGoal(Instant(1))
@@ -3237,6 +3240,7 @@ Components.Tab = (function()
 						OldContainer.Visible = false
 						OldContainer.Position = UDim2.fromOffset(0, 0)
 						OldContainer.GroupTransparency = 0
+						pcall(function() OldContainer.Active = false end)
 					end
 					if OldTab and OldTab.ContainerXMotor and OldTab.ContainerTransparencyMotor then
 						pcall(function()
@@ -5525,7 +5529,7 @@ ElementsTable.Dropdown = (function()
 				Size = UDim2.fromScale(1, 1) + UDim2.fromOffset(30, 30),
 				Position = UDim2.fromOffset(-15, -15),
 				ImageColor3 = Color3.fromRGB(0, 0, 0),
-				ImageTransparency = 0.1,
+				ImageTransparency = 1,
 			}),
 		})
 
