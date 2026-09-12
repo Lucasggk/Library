@@ -6187,6 +6187,7 @@ ElementsTable.Slider = (function()
 			Rounding = Config.Rounding,
 			Callback = Config.Callback or function(Value) end,
 			Type = "Slider",
+			Format = type(Config.Format) == "function" and Config.Format or nil,
 		}
 
 		local Dragging = false
@@ -6304,7 +6305,16 @@ ElementsTable.Slider = (function()
 			self.Value = Library:Round(math.clamp(Value, Slider.Min, Slider.Max), Slider.Rounding)
 			SliderDot.Position = UDim2.new((self.Value - Slider.Min) / (Slider.Max - Slider.Min), -8, 0.5, 0)
 			SliderFill.Size = UDim2.fromScale((self.Value - Slider.Min) / (Slider.Max - Slider.Min), 1)
-			SliderDisplay.Text = tostring(self.Value)
+
+			local DisplayText = tostring(self.Value)
+			if Slider.Format then
+				local ok, result = pcall(Slider.Format, self.Value)
+				if ok and type(result) == "string" and result ~= "" then
+					DisplayText = result
+				end
+			end
+			SliderDisplay.Text = DisplayText
+
 			Library:SafeCallback(Slider.Callback, self.Value)
 			Library:SafeCallback(Slider.Changed, self.Value)
 		end
@@ -7055,6 +7065,9 @@ ElementsTable.Input = (function()
 		Input.Visible = InputFrame.Visible
 		Input.Elements = InputFrame
 
+		-- Fix: push the label holder width to leave space for the textbox
+		InputFrame.LabelHolder.Size = UDim2.new(1, -170, 0, 0)
+
 		local Textbox = Components.Textbox(InputFrame.Frame, true)
 		Textbox.Frame.Position = UDim2.new(1, -10, 0.5, 0)
 		Textbox.Frame.AnchorPoint = Vector2.new(1, 0.5)
@@ -7066,9 +7079,12 @@ ElementsTable.Input = (function()
 		local _isFormatDisplaying = false
 
 		-- Applies Format display after focus is lost (Numeric + Format only)
+		-- Always passes a number to the Format function when Numeric = true
 		local function ApplyFormat()
 			if Input.Format and Input.Numeric and Input.Value ~= "" then
-				local ok, result = pcall(Input.Format, Input.Value)
+				local n = tonumber(Input.Value)
+				if not n then return end
+				local ok, result = pcall(Input.Format, n)
 				if ok and type(result) == "string" and result ~= "" then
 					_isFormatDisplaying = true
 					Box.Text = result
@@ -7076,7 +7092,7 @@ ElementsTable.Input = (function()
 			end
 		end
 
-		-- Restores raw numeric value when user starts editing
+		-- Restores raw numeric value when user focuses the box
 		local function RestoreRaw()
 			if _isFormatDisplaying then
 				_isFormatDisplaying = false
@@ -7096,45 +7112,56 @@ ElementsTable.Input = (function()
 			end
 
 			Input.Value = Text
-			Box.Text = Text
+			-- Don't overwrite the box if format is displaying and SetValue
+			-- was called externally (e.g. SaveManager load) — restore raw then reformat
 			_isFormatDisplaying = false
+			Box.Text = Text
 
 			Library:SafeCallback(Input.Callback, Input.Value)
 			Library:SafeCallback(Input.Changed, Input.Value)
+
+			-- Reapply format after external SetValue (SaveManager load etc.)
+			if not Box:IsFocused() then
+				task.defer(ApplyFormat)
+			end
 		end
+
+		-- Always handle Focused to restore raw value (both Finished and non-Finished)
+		AddSignal(Box.Focused, function()
+			RestoreRaw()
+		end)
 
 		if Input.Finished then
 			AddSignal(Box.FocusLost, function(enter)
-				if not enter then
-					-- User clicked away without pressing Enter; still apply format visually
-					if Input.Format and Input.Numeric then
-						local rawText = Box.Text
-						if Input.Numeric then
-							if (not tonumber(rawText)) and rawText:len() > 0 then
-								rawText = Input.Value
-							end
-						end
-						if Config.MaxLength and #rawText > Config.MaxLength then
-							rawText = rawText:sub(1, Config.MaxLength)
-						end
-						Input.Value = rawText
-						Box.Text = rawText
-						_isFormatDisplaying = false
-						ApplyFormat()
+				-- Apply format on both Enter and click-away
+				local rawText = Box.Text
+				if Input.Numeric then
+					if (not tonumber(rawText)) and rawText:len() > 0 then
+						rawText = Input.Value
 					end
-					return
 				end
-				Input:SetValue(Box.Text)
+				if Config.MaxLength and #rawText > Config.MaxLength then
+					rawText = rawText:sub(1, Config.MaxLength)
+				end
+				Input.Value = rawText
+				_isFormatDisplaying = false
+				Box.Text = rawText
+
+				if enter then
+					Library:SafeCallback(Input.Callback, Input.Value)
+					Library:SafeCallback(Input.Changed, Input.Value)
+				end
+
 				ApplyFormat()
-			end)
-			AddSignal(Box.Focused, function()
-				RestoreRaw()
 			end)
 		else
 			AddSignal(Box:GetPropertyChangedSignal("Text"), function()
-				if not _isFormatDisplaying then
-					Input:SetValue(Box.Text)
-				end
+				if _isFormatDisplaying then return end
+				Input:SetValue(Box.Text)
+			end)
+			AddSignal(Box.FocusLost, function()
+				-- Apply format when user stops typing (Finished = false)
+				ApplyFormat()
 			end)
 		end
 
@@ -7172,6 +7199,8 @@ Elements.__namecall = function(Table, Key, ...)
 	return Elements[Key](...)
 end
 
+local SaveManager
+
 for _, ElementComponent in pairs(ElementsTable) do
 	Elements["Add" .. ElementComponent.__type] = function(self, Idx, Config)
 		if type(Idx) == "table" then
@@ -7202,20 +7231,15 @@ for _, ElementComponent in pairs(ElementsTable) do
 			return ElementComponent:New(Config)
 		else
 			local result = ElementComponent:New(uniqueIdx, Config)
-			if result and result.Callback and SaveManager and SaveManager.Parser and SaveManager.Parser[result.Type] then
-				if not result._autoSaveHooked then
-					result._autoSaveHooked = true
-					local orig = result.Callback
-					result.Callback = function(...)
-						if orig then pcall(orig, ...) end
-						if SaveManager and not SaveManager._saveDebounce then
-							SaveManager._saveDebounce = true
-							task.delay(1.5, function()
-								SaveManager._saveDebounce = false
-								SaveManager:Save()
-							end)
-						end
-					end
+			if result then
+				result.Default = result.Value
+				if eType == "Colorpicker" then
+					result.DefaultTransparency = result.Transparency
+				elseif eType == "Keybind" then
+					result.DefaultMode = result.Mode
+				end
+				if SaveManager then
+					SaveManager:HookOption(result)
 				end
 			end
 			return result
@@ -7223,7 +7247,7 @@ for _, ElementComponent in pairs(ElementsTable) do
 	end
 end
 
-local SaveManager = {
+SaveManager = {
 	Folder = "FluentSettings",
 	Ignore = {},
 	_saveDebounce = false,
@@ -7364,45 +7388,74 @@ function SaveManager:Load()
 	return true
 end
 
+function SaveManager:HookOption(option)
+	if not option or not option.Callback then return end
+	if not self.Parser[option.Type] then return end
+	if option._autoSaveHooked then return end
+	option._autoSaveHooked = true
+
+	local orig = option.Callback
+	option.Callback = function(...)
+		if orig then pcall(orig, ...) end
+		if not SaveManager._saveDebounce then
+			SaveManager._saveDebounce = true
+			task.defer(function()
+				task.wait(0.35)
+				SaveManager._saveDebounce = false
+				pcall(function() SaveManager:Save() end)
+			end)
+		end
+	end
+end
+
+function SaveManager:ResetOption(idx, option)
+	if self.Ignore[idx] or not self.Parser[option.Type] then return end
+
+	if option.Type == "Keybind" then
+		option.Toggled = false
+		pcall(function() option:SetValue(option.Default, option.DefaultMode) end)
+		pcall(function() Library:SafeCallback(option.Callback, false) end)
+	elseif option.Type == "Colorpicker" then
+		pcall(function() option:SetValueRGB(option.Default, option.DefaultTransparency) end)
+	else
+		pcall(function() option:SetValue(option.Default) end)
+	end
+end
+
 function SaveManager:ClearSave()
-	if RunService:IsStudio() then return true end
-	local title = self:GetSaveTitle()
-	local path = self.Folder .. "/" .. title .. ".json"
 	local ok, err = pcall(function()
-		if isfile(path) then
-			writefile(path, "{}")
+		if not RunService:IsStudio() and isfolder(self.Folder) then
+			if delfolder then
+				delfolder(self.Folder)
+			else
+				local files = listfiles(self.Folder)
+				for _, file in next, files do
+					pcall(delfile, file)
+				end
+			end
 		end
 	end)
+
+	for idx, option in next, Library.Options do
+		self:ResetOption(idx, option)
+	end
+
+	pcall(function() Library:SetTheme(self.DefaultTheme or "Dark") end)
+
+	self:BuildFolderTree()
+
 	if not ok then return false, err end
 	return true
 end
 
 SaveManager:BuildFolderTree()
 
-local function _hookAutoSave()
-	for idx, option in next, Library.Options do
-		if not SaveManager.Ignore[idx] and SaveManager.Parser[option.Type] then
-			if not option._autoSaveHooked then
-				option._autoSaveHooked = true
-				local orig = option.Callback
-				option.Callback = function(...)
-					if orig then pcall(orig, ...) end
-					if not SaveManager._saveDebounce then
-						SaveManager._saveDebounce = true
-						task.delay(1.5, function()
-							SaveManager._saveDebounce = false
-							SaveManager:Save()
-						end)
-					end
-				end
-			end
-		end
-	end
+for idx, option in next, Library.Options do
+	SaveManager:HookOption(option)
 end
 
 task.defer(function()
 	SaveManager:Load()
-	_hookAutoSave()
 end)
 
 Library.SaveManager = SaveManager
@@ -7428,6 +7481,7 @@ Library.CreateWindow = function(self, Config)
 	Library.UseAcrylic = Config.Acrylic or false
 	Library.Acrylic = Config.Acrylic or false
 	Library.Theme = Config.Theme or "Dark"
+	SaveManager.DefaultTheme = Library.Theme
 	if Config.BackgroundImage == nil then
 		Config.BackgroundImage = ""
 	end
@@ -7466,6 +7520,20 @@ Library.CreateWindow = function(self, Config)
 
 	Window.AcrylicBlur = function(self, Value)
 		Library:SetAcrylic(Value)
+	end
+
+	Window.SaveManager = SaveManager
+
+	function Window:Save(...)
+		return SaveManager:Save(...)
+	end
+
+	function Window:Load(...)
+		return SaveManager:Load(...)
+	end
+
+	function Window:ClearSave(...)
+		return SaveManager:ClearSave(...)
 	end
 
 	Library:SetTheme(Config.Theme)
