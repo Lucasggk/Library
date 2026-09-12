@@ -6187,6 +6187,7 @@ ElementsTable.Slider = (function()
 			Rounding = Config.Rounding,
 			Callback = Config.Callback or function(Value) end,
 			Type = "Slider",
+			Format = type(Config.Format) == "function" and Config.Format or nil,
 		}
 
 		local Dragging = false
@@ -6304,7 +6305,16 @@ ElementsTable.Slider = (function()
 			self.Value = Library:Round(math.clamp(Value, Slider.Min, Slider.Max), Slider.Rounding)
 			SliderDot.Position = UDim2.new((self.Value - Slider.Min) / (Slider.Max - Slider.Min), -8, 0.5, 0)
 			SliderFill.Size = UDim2.fromScale((self.Value - Slider.Min) / (Slider.Max - Slider.Min), 1)
-			SliderDisplay.Text = tostring(self.Value)
+
+			local DisplayText = tostring(self.Value)
+			if Slider.Format then
+				local ok, result = pcall(Slider.Format, self.Value)
+				if ok and type(result) == "string" and result ~= "" then
+					DisplayText = result
+				end
+			end
+			SliderDisplay.Text = DisplayText
+
 			Library:SafeCallback(Slider.Callback, self.Value)
 			Library:SafeCallback(Slider.Changed, self.Value)
 		end
@@ -7430,6 +7440,8 @@ function SaveManager:ClearSave()
 		self:ResetOption(idx, option)
 	end
 
+	pcall(function() Library:SetTheme(self.DefaultTheme or "Dark") end)
+
 	self:BuildFolderTree()
 
 	if not ok then return false, err end
@@ -7469,6 +7481,7 @@ Library.CreateWindow = function(self, Config)
 	Library.UseAcrylic = Config.Acrylic or false
 	Library.Acrylic = Config.Acrylic or false
 	Library.Theme = Config.Theme or "Dark"
+	SaveManager.DefaultTheme = Library.Theme
 	if Config.BackgroundImage == nil then
 		Config.BackgroundImage = ""
 	end
