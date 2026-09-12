@@ -2252,9 +2252,13 @@ Components.Element = (function()
 
 		Element.TitleLabel.Parent = Element.Header
 
+		local descText = Desc or ""
+		-- Replace literal \n escape sequences with actual newlines
+		descText = descText:gsub("\\n", "\n")
+
 		Element.DescLabel = New("TextLabel", {
 			FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json"),
-			Text = Desc,
+			Text = descText,
 			TextColor3 = Color3.fromRGB(200, 200, 200),
 			TextSize = 12,
 			TextWrapped = true,
@@ -2262,7 +2266,7 @@ Components.Element = (function()
 			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
-			Size = UDim2.new(1, 0, 0, 14),
+			Size = UDim2.new(1, 0, 0, 0),
 			ThemeTag = {
 				TextColor3 = "SubText",
 			},
@@ -2359,7 +2363,7 @@ Components.Element = (function()
 
 					Element.DescLabel.Parent = Element.DescRow
 					Element.DescLabel.LayoutOrder = 2
-					Element.DescLabel.Size = UDim2.new(1, -24, 0, 14)
+					Element.DescLabel.Size = UDim2.new(1, -24, 0, 0)
 				else
 					if Element.DescRow then
 						Element.DescRow:Destroy()
@@ -2368,7 +2372,7 @@ Components.Element = (function()
 					end
 					Element.DescLabel.Parent = Element.LabelHolder
 					Element.DescLabel.LayoutOrder = 2
-					Element.DescLabel.Size = UDim2.new(1, 0, 0, 14)
+					Element.DescLabel.Size = UDim2.new(1, 0, 0, 0)
 				end
 			else
 				if Element.DescRow then
@@ -2378,7 +2382,7 @@ Components.Element = (function()
 				end
 				Element.DescLabel.Parent = Element.LabelHolder
 				Element.DescLabel.LayoutOrder = 2
-				Element.DescLabel.Size = UDim2.new(1, 0, 0, 14)
+				Element.DescLabel.Size = UDim2.new(1, 0, 0, 0)
 			end
 			if Library.Window and Library.Window.AllElements and Library.Window.AllElements[Element.Frame] then
 				Library.Window.AllElements[Element.Frame].title = Set
@@ -2397,6 +2401,10 @@ Components.Element = (function()
 		function Element:SetDesc(Set)
 			if Set == nil then
 				Set = ""
+			end
+			-- Replace literal \n escape sequences with actual newlines
+			if type(Set) == "string" then
+				Set = Set:gsub("\\n", "\n")
 			end
 			if Set == "" then
 				Element.DescLabel.Visible = false
@@ -5170,7 +5178,7 @@ ElementsTable.Toggle = (function()
 		}
 
 		local ToggleFrame = Components.Element(Config.Title, Config.Description, self.Container, true, Config)
-		ToggleFrame.DescLabel.Size = UDim2.new(1, -54, 0, 14)
+		ToggleFrame.DescLabel.Size = UDim2.new(1, -54, 0, 0)
 
 		Toggle.SetTitle = ToggleFrame.SetTitle
 		Toggle.SetDesc = ToggleFrame.SetDesc
@@ -5296,7 +5304,7 @@ ElementsTable.Dropdown = (function()
 		end
 
 		local DropdownFrame = Components.Element(Config.Title, Config.Description, self.Container, false, Config)
-		DropdownFrame.DescLabel.Size = UDim2.new(1, -170, 0, 14)
+		DropdownFrame.DescLabel.Size = UDim2.new(1, -170, 0, 0)
 
 		Dropdown.SetTitle = DropdownFrame.SetTitle
 		Dropdown.SetDesc = DropdownFrame.SetDesc
@@ -6184,7 +6192,7 @@ ElementsTable.Slider = (function()
 		local Dragging = false
 
 		local SliderFrame = Components.Element(Config.Title, Config.Description, self.Container, false, Config)
-		SliderFrame.DescLabel.Size = UDim2.new(1, -170, 0, 14)
+		SliderFrame.DescLabel.Size = UDim2.new(1, -170, 0, 0)
 
 		Slider.Elements = SliderFrame
 		Slider.SetTitle = SliderFrame.SetTitle
@@ -6335,7 +6343,7 @@ ElementsTable.Keybind = (function()
 
 		local Picking = false
 
-		local KeybindFrame = Components.Element(Config.Title, Config.Description, self.Container, true)
+		local KeybindFrame = Components.Element(Config.Title, Config.Description, self.Container, true, Config)
 
 		Keybind.SetTitle = KeybindFrame.SetTitle
 		Keybind.SetDesc = KeybindFrame.SetDesc
@@ -6542,7 +6550,7 @@ ElementsTable.Colorpicker = (function()
 
 		Colorpicker:SetHSVFromRGB(Colorpicker.Value)
 
-		local ColorpickerFrame = Components.Element(Config.Title, Config.Description, self.Container, true)
+		local ColorpickerFrame = Components.Element(Config.Title, Config.Description, self.Container, true, Config)
 
 		Colorpicker.SetTitle = ColorpickerFrame.SetTitle
 		Colorpicker.SetDesc = ColorpickerFrame.SetDesc
@@ -7037,9 +7045,10 @@ ElementsTable.Input = (function()
 			Finished = Config.Finished or false,
 			Callback = Config.Callback or function(Value) end,
 			Type = "Input",
+			Format = (Config.Numeric and type(Config.Format) == "function") and Config.Format or nil,
 		}
 
-		local InputFrame = Components.Element(Config.Title, Config.Description, self.Container, false)
+		local InputFrame = Components.Element(Config.Title, Config.Description, self.Container, false, Config)
 
 		Input.SetTitle = InputFrame.SetTitle
 		Input.SetDesc = InputFrame.SetDesc
@@ -7054,6 +7063,26 @@ ElementsTable.Input = (function()
 		Textbox.Input.PlaceholderText = Config.Placeholder or ""
 
 		local Box = Textbox.Input
+		local _isFormatDisplaying = false
+
+		-- Applies Format display after focus is lost (Numeric + Format only)
+		local function ApplyFormat()
+			if Input.Format and Input.Numeric and Input.Value ~= "" then
+				local ok, result = pcall(Input.Format, Input.Value)
+				if ok and type(result) == "string" and result ~= "" then
+					_isFormatDisplaying = true
+					Box.Text = result
+				end
+			end
+		end
+
+		-- Restores raw numeric value when user starts editing
+		local function RestoreRaw()
+			if _isFormatDisplaying then
+				_isFormatDisplaying = false
+				Box.Text = tostring(Input.Value)
+			end
+		end
 
 		function Input:SetValue(Text)
 			if Config.MaxLength and #Text > Config.MaxLength then
@@ -7068,6 +7097,7 @@ ElementsTable.Input = (function()
 
 			Input.Value = Text
 			Box.Text = Text
+			_isFormatDisplaying = false
 
 			Library:SafeCallback(Input.Callback, Input.Value)
 			Library:SafeCallback(Input.Changed, Input.Value)
@@ -7076,14 +7106,41 @@ ElementsTable.Input = (function()
 		if Input.Finished then
 			AddSignal(Box.FocusLost, function(enter)
 				if not enter then
+					-- User clicked away without pressing Enter; still apply format visually
+					if Input.Format and Input.Numeric then
+						local rawText = Box.Text
+						if Input.Numeric then
+							if (not tonumber(rawText)) and rawText:len() > 0 then
+								rawText = Input.Value
+							end
+						end
+						if Config.MaxLength and #rawText > Config.MaxLength then
+							rawText = rawText:sub(1, Config.MaxLength)
+						end
+						Input.Value = rawText
+						Box.Text = rawText
+						_isFormatDisplaying = false
+						ApplyFormat()
+					end
 					return
 				end
 				Input:SetValue(Box.Text)
+				ApplyFormat()
+			end)
+			AddSignal(Box.Focused, function()
+				RestoreRaw()
 			end)
 		else
 			AddSignal(Box:GetPropertyChangedSignal("Text"), function()
-				Input:SetValue(Box.Text)
+				if not _isFormatDisplaying then
+					Input:SetValue(Box.Text)
+				end
 			end)
+		end
+
+		-- Apply format on initial value if set
+		if Config.Default and Config.Default ~= "" then
+			task.defer(ApplyFormat)
 		end
 
 		function Input:OnChanged(Func)
