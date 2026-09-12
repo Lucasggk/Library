@@ -7189,6 +7189,8 @@ Elements.__namecall = function(Table, Key, ...)
 	return Elements[Key](...)
 end
 
+local SaveManager
+
 for _, ElementComponent in pairs(ElementsTable) do
 	Elements["Add" .. ElementComponent.__type] = function(self, Idx, Config)
 		if type(Idx) == "table" then
@@ -7219,20 +7221,15 @@ for _, ElementComponent in pairs(ElementsTable) do
 			return ElementComponent:New(Config)
 		else
 			local result = ElementComponent:New(uniqueIdx, Config)
-			if result and result.Callback and SaveManager and SaveManager.Parser and SaveManager.Parser[result.Type] then
-				if not result._autoSaveHooked then
-					result._autoSaveHooked = true
-					local orig = result.Callback
-					result.Callback = function(...)
-						if orig then pcall(orig, ...) end
-						if SaveManager and not SaveManager._saveDebounce then
-							SaveManager._saveDebounce = true
-							task.delay(1.5, function()
-								SaveManager._saveDebounce = false
-								SaveManager:Save()
-							end)
-						end
-					end
+			if result then
+				result.Default = result.Value
+				if eType == "Colorpicker" then
+					result.DefaultTransparency = result.Transparency
+				elseif eType == "Keybind" then
+					result.DefaultMode = result.Mode
+				end
+				if SaveManager then
+					SaveManager:HookOption(result)
 				end
 			end
 			return result
@@ -7240,7 +7237,7 @@ for _, ElementComponent in pairs(ElementsTable) do
 	end
 end
 
-local SaveManager = {
+SaveManager = {
 	Folder = "FluentSettings",
 	Ignore = {},
 	_saveDebounce = false,
@@ -7381,45 +7378,72 @@ function SaveManager:Load()
 	return true
 end
 
+function SaveManager:HookOption(option)
+	if not option or not option.Callback then return end
+	if not self.Parser[option.Type] then return end
+	if option._autoSaveHooked then return end
+	option._autoSaveHooked = true
+
+	local orig = option.Callback
+	option.Callback = function(...)
+		if orig then pcall(orig, ...) end
+		if not SaveManager._saveDebounce then
+			SaveManager._saveDebounce = true
+			task.defer(function()
+				task.wait(0.35)
+				SaveManager._saveDebounce = false
+				pcall(function() SaveManager:Save() end)
+			end)
+		end
+	end
+end
+
+function SaveManager:ResetOption(idx, option)
+	if self.Ignore[idx] or not self.Parser[option.Type] then return end
+
+	if option.Type == "Keybind" then
+		option.Toggled = false
+		pcall(function() option:SetValue(option.Default, option.DefaultMode) end)
+		pcall(function() Library:SafeCallback(option.Callback, false) end)
+	elseif option.Type == "Colorpicker" then
+		pcall(function() option:SetValueRGB(option.Default, option.DefaultTransparency) end)
+	else
+		pcall(function() option:SetValue(option.Default) end)
+	end
+end
+
 function SaveManager:ClearSave()
-	if RunService:IsStudio() then return true end
-	local title = self:GetSaveTitle()
-	local path = self.Folder .. "/" .. title .. ".json"
 	local ok, err = pcall(function()
-		if isfile(path) then
-			writefile(path, "{}")
+		if not RunService:IsStudio() and isfolder(self.Folder) then
+			if delfolder then
+				delfolder(self.Folder)
+			else
+				local files = listfiles(self.Folder)
+				for _, file in next, files do
+					pcall(delfile, file)
+				end
+			end
 		end
 	end)
+
+	for idx, option in next, Library.Options do
+		self:ResetOption(idx, option)
+	end
+
+	self:BuildFolderTree()
+
 	if not ok then return false, err end
 	return true
 end
 
 SaveManager:BuildFolderTree()
 
-local function _hookAutoSave()
-	for idx, option in next, Library.Options do
-		if not SaveManager.Ignore[idx] and SaveManager.Parser[option.Type] then
-			if not option._autoSaveHooked then
-				option._autoSaveHooked = true
-				local orig = option.Callback
-				option.Callback = function(...)
-					if orig then pcall(orig, ...) end
-					if not SaveManager._saveDebounce then
-						SaveManager._saveDebounce = true
-						task.delay(1.5, function()
-							SaveManager._saveDebounce = false
-							SaveManager:Save()
-						end)
-					end
-				end
-			end
-		end
-	end
+for idx, option in next, Library.Options do
+	SaveManager:HookOption(option)
 end
 
 task.defer(function()
 	SaveManager:Load()
-	_hookAutoSave()
 end)
 
 Library.SaveManager = SaveManager
@@ -7483,6 +7507,20 @@ Library.CreateWindow = function(self, Config)
 
 	Window.AcrylicBlur = function(self, Value)
 		Library:SetAcrylic(Value)
+	end
+
+	Window.SaveManager = SaveManager
+
+	function Window:Save(...)
+		return SaveManager:Save(...)
+	end
+
+	function Window:Load(...)
+		return SaveManager:Load(...)
+	end
+
+	function Window:ClearSave(...)
+		return SaveManager:ClearSave(...)
 	end
 
 	Library:SetTheme(Config.Theme)
