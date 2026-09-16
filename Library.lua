@@ -2253,7 +2253,7 @@ Components.Element = (function()
 		Element.TitleLabel.Parent = Element.Header
 
 		local descText = Desc or ""
-		-- Replace literal \n escape sequences with actual newlines
+
 		descText = descText:gsub("\\n", "\n")
 
 		Element.DescLabel = New("TextLabel", {
@@ -2402,7 +2402,7 @@ Components.Element = (function()
 			if Set == nil then
 				Set = ""
 			end
-			-- Replace literal \n escape sequences with actual newlines
+
 			if type(Set) == "string" then
 				Set = Set:gsub("\\n", "\n")
 			end
@@ -2582,8 +2582,10 @@ Components.Tab = (function()
 	function TabModule:GetCurrentTabPos()
 		local TabHolderPos = TabModule.Window.TabHolder.AbsolutePosition.Y
 		local TabPos = TabModule.Tabs[TabModule.SelectedTab].Frame.AbsolutePosition.Y
+		local CanvasOffsetY = TabModule.Window.TabHolder.CanvasPosition.Y
+		local TabHeight = TabModule.Tabs[TabModule.SelectedTab].Frame.AbsoluteSize.Y
 
-		return TabPos - TabHolderPos
+		return (TabPos - TabHolderPos) + CanvasOffsetY + (TabHeight / 2)
 	end
 
 	function TabModule:New(Title, Icon, Parent)
@@ -3171,7 +3173,16 @@ Components.Tab = (function()
 		TabModule.Tabs[Tab].Selected = true
 
 		Window.TabDisplay.Text = TabModule.Tabs[Tab].Name
-		Window.SelectorPosMotor:setGoal(Spring(TabModule:GetCurrentTabPos(), { frequency = 12 }))
+
+		Window.SelectorSizeMotor:setGoal(Spring(32, { frequency = 6, dampingRatio = 0.7 }))
+		task.defer(function()
+			Window.SelectorSizeMotor:setGoal(Spring(16, { frequency = 6, dampingRatio = 0.8 }))
+		end)
+		local Selector = Window.Selector
+		if Selector then
+			Selector.Parent = TabModule.Tabs[Tab].Frame
+			Selector.Position = UDim2.new(0, 0, 0.5, 0)
+		end
 
 		if PreviousTab > 0 and PreviousTab ~= Tab and TabModule.Tabs[PreviousTab] and TabModule.Tabs[Tab] then
 			local OldContainer = TabModule.Tabs[PreviousTab].ContainerAnim
@@ -4069,9 +4080,9 @@ Components.Window = (function()
 		local Selector = New("Frame", {
 			Size = UDim2.fromOffset(4, 0),
 			BackgroundColor3 = Color3.fromRGB(76, 194, 255),
-			Position = UDim2.fromOffset(0, (Window.TabHolderTop or 45) + 0),
+			Position = UDim2.fromOffset(0, 17),
 			AnchorPoint = Vector2.new(0, 0.5),
-			ZIndex = 1,
+			ZIndex = 20,
 			ThemeTag = {
 				BackgroundColor3 = "Accent",
 			},
@@ -4483,8 +4494,10 @@ Components.Window = (function()
 			ImageFrame,
 			SearchFrame,
 			Window.TabHolder,
-			Selector,
 		})
+
+		Selector.Parent = Window.TabHolder
+		Window.Selector = Selector
 
 		Window.TabFrame = TabFrame
 
@@ -4743,7 +4756,7 @@ Components.Window = (function()
 			Y = Window.Position.Y.Offset,
 		})
 
-		Window.SelectorPosMotor = Flipper.SingleMotor.new(17)
+		Window.SelectorPosMotor = Flipper.SingleMotor.new(0)
 		Window.SelectorSizeMotor = Flipper.SingleMotor.new(0)
 		Window.ContainerBackMotor = Flipper.SingleMotor.new(0)
 		Window.ContainerPosMotor = Flipper.SingleMotor.new(94)
@@ -4766,50 +4779,7 @@ Components.Window = (function()
 		local LastValue = 0
 		local LastTime = 0
 		Window.SelectorPosMotor:onStep(function(Value)
-			local base = Window.TabHolderTop or 45
-			local verticalInset = 16
-			local selectorY = base + Value + verticalInset
-
-			local searchOffset = Window.HasImage and (Window.ImageSize + Window.TopOffset + 10) or Window.TopOffset
-			local searchTop = searchOffset
-			local searchBottom = searchTop + 28
-
-			if Window.HasImage and Window.ImageSize then
-				local imageBottom = Window.ImageSize + Window.TopOffset + 10
-				if selectorY < imageBottom then
-					Selector.Visible = false
-					return
-				end
-			end
-
-			if Window.ShowSearch then
-				if selectorY >= searchTop and selectorY <= searchBottom then
-					Selector.Visible = false
-					return
-				end
-			end
-
-			if Window.UserInfoHeight then
-				local tabFrameSize = Window.TabFrame and Window.TabFrame.Size.Y.Offset or 0
-				local userInfoTop = Window.UserInfoTop and 0 or (tabFrameSize - Window.UserInfoHeight - 2)
-				local userInfoBottom = userInfoTop + Window.UserInfoHeight
-
-				if selectorY >= userInfoTop and selectorY <= userInfoBottom then
-					Selector.Visible = false
-					return
-				end
-			end
-
 			Selector.Visible = true
-			Selector.Position = UDim2.new(0, 0, 0, selectorY)
-			local Now = tick()
-			local DeltaTime = Now - LastTime
-
-			if LastValue ~= nil then
-				Window.SelectorSizeMotor:setGoal(Spring((math.abs(Value - LastValue) / (DeltaTime * 60)) + 16))
-				LastValue = Value
-			end
-			LastTime = Now
 		end)
 
 		Window.SelectorSizeMotor:onStep(function(Value)
@@ -5120,9 +5090,6 @@ function Window:AddTab(TabConfig)
 		end
 
 		Creator.AddSignal(Window.TabHolder:GetPropertyChangedSignal("CanvasPosition"), function()
-			LastValue = TabModule:GetCurrentTabPos() + 16
-			LastTime = 0
-			Window.SelectorPosMotor:setGoal(Instant(TabModule:GetCurrentTabPos()))
 		end)
 
 		return Window
@@ -6248,7 +6215,7 @@ ElementsTable.Slider = (function()
 		local SliderInner = New("Frame", {
 			Size = UDim2.new(1, 0, 0, 8),
 			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.new(1, -10, 0.5, 0),
+			Position = UDim2.new(1, -15, 0.5, 0),
 			BackgroundTransparency = 0.4,
 			Parent = SliderFrame.Frame,
 			ThemeTag = {
@@ -6259,11 +6226,18 @@ ElementsTable.Slider = (function()
 				CornerRadius = UDim.new(1, 0),
 			}),
 			New("UISizeConstraint", {
-				MaxSize = Vector2.new(150, math.huge),
+				MaxSize = Vector2.new(145, math.huge),
 			}),
 			SliderDisplay,
 			SliderFill,
 			SliderRail,
+			New("Frame", {
+				Size = UDim2.new(1, 24, 0, 44),
+				Position = UDim2.new(0, -12, 0.5, 0),
+				AnchorPoint = Vector2.new(0, 0.5),
+				BackgroundTransparency = 1,
+				ZIndex = 10,
+			}),
 		})
 
 		local function SliderUpdate(posX)
@@ -6271,18 +6245,28 @@ ElementsTable.Slider = (function()
 			Slider:SetValue(Slider.Min + ((Slider.Max - Slider.Min) * SizeScale))
 		end
 
-		Creator.AddSignal(SliderInner.InputBegan, function(Input)
+		local SliderHitbox = SliderInner:FindFirstChildOfClass("Frame")
+
+		local function OnSliderInputBegan(Input)
 			if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 				Dragging = true
 				SliderUpdate(Input.Position.X)
 			end
-		end)
+		end
 
-		Creator.AddSignal(SliderInner.InputEnded, function(Input)
+		local function OnSliderInputEnded(Input)
 			if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
 				Dragging = false
 			end
-		end)
+		end
+
+		Creator.AddSignal(SliderInner.InputBegan, OnSliderInputBegan)
+		Creator.AddSignal(SliderInner.InputEnded, OnSliderInputEnded)
+
+		if SliderHitbox then
+			Creator.AddSignal(SliderHitbox.InputBegan, OnSliderInputBegan)
+			Creator.AddSignal(SliderHitbox.InputEnded, OnSliderInputEnded)
+		end
 
 		Creator.AddSignal(UserInputService.InputEnded, function(Input)
 			if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
@@ -7065,8 +7049,7 @@ ElementsTable.Input = (function()
 		Input.Visible = InputFrame.Visible
 		Input.Elements = InputFrame
 
-		-- Fix: push the label holder width to leave space for the textbox
-		InputFrame.LabelHolder.Size = UDim2.new(1, -170, 0, 0)
+		InputFrame.LabelHolder.Size = UDim2.new(1, -175, 0, 0)
 
 		local Textbox = Components.Textbox(InputFrame.Frame, true)
 		Textbox.Frame.Position = UDim2.new(1, -10, 0.5, 0)
@@ -7078,8 +7061,6 @@ ElementsTable.Input = (function()
 		local Box = Textbox.Input
 		local _isFormatDisplaying = false
 
-		-- Applies Format display after focus is lost (Numeric + Format only)
-		-- Always passes a number to the Format function when Numeric = true
 		local function ApplyFormat()
 			if Input.Format and Input.Numeric and Input.Value ~= "" then
 				local n = tonumber(Input.Value)
@@ -7092,7 +7073,6 @@ ElementsTable.Input = (function()
 			end
 		end
 
-		-- Restores raw numeric value when user focuses the box
 		local function RestoreRaw()
 			if _isFormatDisplaying then
 				_isFormatDisplaying = false
@@ -7112,28 +7092,25 @@ ElementsTable.Input = (function()
 			end
 
 			Input.Value = Text
-			-- Don't overwrite the box if format is displaying and SetValue
-			-- was called externally (e.g. SaveManager load) — restore raw then reformat
+
 			_isFormatDisplaying = false
 			Box.Text = Text
 
 			Library:SafeCallback(Input.Callback, Input.Value)
 			Library:SafeCallback(Input.Changed, Input.Value)
 
-			-- Reapply format after external SetValue (SaveManager load etc.)
 			if not Box:IsFocused() then
 				task.defer(ApplyFormat)
 			end
 		end
 
-		-- Always handle Focused to restore raw value (both Finished and non-Finished)
 		AddSignal(Box.Focused, function()
 			RestoreRaw()
 		end)
 
 		if Input.Finished then
 			AddSignal(Box.FocusLost, function(enter)
-				-- Apply format on both Enter and click-away
+
 				local rawText = Box.Text
 				if Input.Numeric then
 					if (not tonumber(rawText)) and rawText:len() > 0 then
@@ -7160,12 +7137,11 @@ ElementsTable.Input = (function()
 				Input:SetValue(Box.Text)
 			end)
 			AddSignal(Box.FocusLost, function()
-				-- Apply format when user stops typing (Finished = false)
+
 				ApplyFormat()
 			end)
 		end
 
-		-- Apply format on initial value if set
 		if Config.Default and Config.Default ~= "" then
 			task.defer(ApplyFormat)
 		end
@@ -7374,12 +7350,10 @@ function SaveManager:Load()
 			for idx, optData in pairs(tabData) do
 				if type(optData) == "table" and optData.type and self.Parser[optData.type] then
 					local internalIdx = tabName .. "_" .. idx
-					local target = Library.Options[internalIdx] or Library.Options[idx]
-					if target then
+					if Library.Options[internalIdx] then
 						pcall(function() self.Parser[optData.type].Load(internalIdx, optData) end)
-						if not Library.Options[internalIdx] then
-							pcall(function() self.Parser[optData.type].Load(idx, optData) end)
-						end
+					elseif Library.Options[idx] then
+						pcall(function() self.Parser[optData.type].Load(idx, optData) end)
 					end
 				end
 			end
@@ -7453,10 +7427,6 @@ SaveManager:BuildFolderTree()
 for idx, option in next, Library.Options do
 	SaveManager:HookOption(option)
 end
-
-task.defer(function()
-	SaveManager:Load()
-end)
 
 Library.SaveManager = SaveManager
 Library.Elements = Elements
@@ -7537,6 +7507,13 @@ Library.CreateWindow = function(self, Config)
 	end
 
 	Library:SetTheme(Config.Theme)
+
+	task.defer(function()
+		task.defer(function()
+			pcall(function() SaveManager:Load() end)
+		end)
+	end)
+
 	return Window
 end
 function Library:CreateMinimizer(Config)
