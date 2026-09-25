@@ -7339,9 +7339,90 @@ function SaveManager:Load()
 	if not (pcall(isfile, path) and isfile(path)) then return false, "File not found" end
 	local ok, result = pcall(readfile, path)
 	if not ok then return false, result end
+	if not result or result == "" then return false, "Empty file" end
 	local success, decoded = pcall(httpService.JSONDecode, httpService, result)
 	if not success then return false, decoded end
 	if type(decoded) ~= "table" then return false, "Invalid data" end
+	if decoded.__theme and type(decoded.__theme) == "string" then
+		Library:SetTheme(decoded.__theme)
+	end
+
+	local fallbackByCleanIdx = {}
+	for tabName, tabData in pairs(decoded) do
+		if tabName ~= "__theme" and type(tabData) == "table" then
+			for idx, optData in pairs(tabData) do
+				if type(optData) == "table" and optData.type and self.Parser[optData.type] then
+					if not fallbackByCleanIdx[idx] then
+						fallbackByCleanIdx[idx] = {}
+					end
+					table.insert(fallbackByCleanIdx[idx], { tabName = tabName, optData = optData })
+				end
+			end
+		end
+	end
+
+	for tabName, tabData in pairs(decoded) do
+		if tabName ~= "__theme" and type(tabData) == "table" then
+			for idx, optData in pairs(tabData) do
+				if type(optData) == "table" and optData.type and self.Parser[optData.type] then
+					local internalIdx = tabName .. "_" .. idx
+					if Library.Options[internalIdx] then
+						pcall(function() self.Parser[optData.type].Load(internalIdx, optData) end)
+					elseif Library.Options[idx] then
+						pcall(function() self.Parser[optData.type].Load(idx, optData) end)
+					else
+						local suffix = "_" .. idx
+						for optIdx, optObj in next, Library.Options do
+							if optObj.Type == optData.type then
+								local endsWithSuffix = optIdx:sub(-#suffix) == suffix
+								if endsWithSuffix then
+									pcall(function() self.Parser[optData.type].Load(optIdx, optData) end)
+									break
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	return true
+end
+
+function SaveManager:ExportSave()
+	local data = self:BuildData()
+	local success, encoded = pcall(httpService.JSONEncode, httpService, data)
+	if not success then return nil, "Failed to encode: " .. tostring(encoded) end
+	return encoded
+end
+
+function SaveManager:ImportSave(json)
+	if type(json) ~= "string" or json == "" then
+		return false, "Invalid JSON: must be a non-empty string"
+	end
+	local success, decoded = pcall(httpService.JSONDecode, httpService, json)
+	if not success then return false, "Invalid JSON: " .. tostring(decoded) end
+	if type(decoded) ~= "table" then return false, "Invalid JSON: root must be an object" end
+
+	local hasData = false
+	for k, v in pairs(decoded) do
+		if k == "__theme" or type(v) == "table" then
+			hasData = true
+			break
+		end
+	end
+	if not hasData then return false, "Invalid save data: no recognizable fields" end
+
+	for idx, option in next, Library.Options do
+		self:ResetOption(idx, option)
+	end
+
+	if not RunService:IsStudio() then
+		local title = self:GetSaveTitle()
+		local path = self.Folder .. "/" .. title .. ".json"
+		pcall(writefile, path, json)
+	end
+
 	if decoded.__theme and type(decoded.__theme) == "string" then
 		Library:SetTheme(decoded.__theme)
 	end
@@ -7354,6 +7435,16 @@ function SaveManager:Load()
 						pcall(function() self.Parser[optData.type].Load(internalIdx, optData) end)
 					elseif Library.Options[idx] then
 						pcall(function() self.Parser[optData.type].Load(idx, optData) end)
+					else
+						local suffix = "_" .. idx
+						for optIdx, optObj in next, Library.Options do
+							if optObj.Type == optData.type then
+								if optIdx:sub(-#suffix) == suffix then
+									pcall(function() self.Parser[optData.type].Load(optIdx, optData) end)
+									break
+								end
+							end
+						end
 					end
 				end
 			end
@@ -7506,12 +7597,42 @@ Library.CreateWindow = function(self, Config)
 		return SaveManager:ClearSave(...)
 	end
 
+	function Window:ExportSave()
+		return SaveManager:ExportSave()
+	end
+
+	function Window:ImportSave(json)
+		return SaveManager:ImportSave(json)
+	end
+
+	function Window:SetSize(size)
+		local newSize
+		if typeof(size) == "UDim2" then
+			newSize = size
+		elseif type(size) == "table" and size.X and size.Y then
+			newSize = UDim2.fromOffset(size.X, size.Y)
+		else
+			return false, "SetSize expects a UDim2 or {X=number, Y=number}"
+		end
+		Window.Size = newSize
+		if Window.Root then
+			Window.Root.Size = newSize
+		end
+		local vp = Camera.ViewportSize
+		local x = math.max(0, (vp.X - newSize.X.Offset) / 2)
+		local y = math.max(0, (vp.Y - newSize.Y.Offset) / 2)
+		Window.Position = UDim2.fromOffset(math.floor(x), math.floor(y))
+		if Window.Root then
+			Window.Root.Position = Window.Position
+		end
+		return true
+	end
+
 	Library:SetTheme(Config.Theme)
 
 	task.defer(function()
-		task.defer(function()
-			pcall(function() SaveManager:Load() end)
-		end)
+		RunService.Heartbeat:Wait()
+		pcall(function() SaveManager:Load() end)
 	end)
 
 	return Window
