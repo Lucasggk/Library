@@ -3245,6 +3245,54 @@ Components.Tab = (function()
 		end
 	end
 
+	function TabModule:RefreshSize()
+		local Window = self.Window
+		if not Window then return end
+
+		if Window.ContainerHolder then
+			Window.ContainerHolder.Size = UDim2.fromScale(1, 1)
+		end
+
+		if Window.ContainerAnim then
+			Window.ContainerAnim.Size = UDim2.fromScale(1, 1)
+		end
+
+		if Window.ContainerCanvas then
+			Window.ContainerCanvas.Size = UDim2.new(1, -Window.TabWidth - 32, 1, -102)
+		end
+
+		for _, Tab in next, self.Tabs do
+			if Tab.ContainerAnim then
+				Tab.ContainerAnim.Size = UDim2.fromScale(1, 1)
+			end
+			if Tab.ContainerFrame then
+				Tab.ContainerFrame.Size = UDim2.fromScale(1, 1)
+				local layout = Tab.ContainerFrame:FindFirstChildOfClass("UIListLayout")
+				if layout then
+					Tab.ContainerFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 2)
+				end
+			end
+			if Tab.SubTabHolder then
+				Tab.SubTabHolder.Size = UDim2.new(1, 0, 0, 40)
+			end
+			if Tab.SubTabContainerHolder then
+				Tab.SubTabContainerHolder.Size = UDim2.new(1, 0, 1, -56)
+			end
+			for _, SubTab in next, Tab.SubTabs or {} do
+				if SubTab.ContainerAnim then
+					SubTab.ContainerAnim.Size = UDim2.fromScale(1, 1)
+				end
+				if SubTab.Container then
+					SubTab.Container.Size = UDim2.fromScale(1, 1)
+					local layout = SubTab.Container:FindFirstChildOfClass("UIListLayout")
+					if layout then
+						SubTab.Container.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 2)
+					end
+				end
+			end
+		end
+	end
+
 	return TabModule
 end)()
 Components.Button = (function()
@@ -4742,6 +4790,34 @@ Components.Window = (function()
 			end
 		end
 
+		function Window:UpdateTabHolderLayout()
+			if not Window.Root then return end
+			local userInfoHeight = Window.UserInfoHeight or 0
+			local topOffset = Window.TopOffset or 0
+			local imageOffset = Window.HasImage and ((Window.ImageSize or 0) + 10 + topOffset) or topOffset
+			local searchHeight = 28
+			local tabHolderTop = Window.TabHolderTop or 45
+			if Window.UserInfoTop then
+				tabHolderTop = userInfoHeight + 6 + imageOffset + (Window.ShowSearch and (searchHeight + 6) or 0)
+			else
+				tabHolderTop = (Window.HasImage and ((Window.ImageSize or 0) + 10 + topOffset) or (Window.ShowSearch and (searchHeight + 6) or 45))
+			end
+			Window.TabHolderTop = tabHolderTop
+			if Window.TabHolder then
+				Window.TabHolder.Position = UDim2.new(0, 0, 0, tabHolderTop)
+				Window.TabHolder.Size = UDim2.new(1, 0, 1, -(tabHolderTop + 6 + userInfoHeight))
+			end
+			if Window.TabFrame then
+				Window.TabFrame.Size = UDim2.new(0, Window.TabWidth, 1, -((Window.ShowSearch and searchHeight or 0) + imageOffset + 31 + userInfoHeight))
+			end
+			if Window.TabDisplay then
+				Window.TabDisplay.Position = UDim2.fromOffset(Window.TabWidth + 26, 56)
+			end
+			if Window._TabModule then
+				Window._TabModule:RefreshSize()
+			end
+		end
+
 		if Library.UseAcrylic then
 			Window.AcrylicPaint.AddParent(Window.Root)
 		end
@@ -4750,6 +4826,7 @@ Components.Window = (function()
 			X = Window.Size.X.Offset,
 			Y = Window.Size.Y.Offset,
 		})
+		Window._SizeMotor = SizeMotor
 
 		local PosMotor = Flipper.GroupMotor.new({
 			X = Window.Position.X.Offset,
@@ -7227,6 +7304,8 @@ SaveManager = {
 	Folder = "FluentSettings",
 	Ignore = {},
 	_saveDebounce = false,
+	_enabled = true,
+	_operationId = 0,
 	Parser = {
 		Toggle = {
 			Save = function(idx, object)
@@ -7320,7 +7399,20 @@ function SaveManager:BuildData()
 	return data
 end
 
+function SaveManager:BeginBatch()
+	self._operationId = self._operationId + 1
+	self._enabled = false
+	self._saveDebounce = false
+end
+
+function SaveManager:EndBatch()
+	self._operationId = self._operationId + 1
+	self._saveDebounce = false
+	self._enabled = true
+end
+
 function SaveManager:Save()
+	if not self._enabled then return false, "SaveManager disabled" end
 	if RunService:IsStudio() then return true end
 	local title = self:GetSaveTitle()
 	local path = self.Folder .. "/" .. title .. ".json"
@@ -7413,19 +7505,16 @@ function SaveManager:ImportSave(json)
 	end
 	if not hasData then return false, "Invalid save data: no recognizable fields" end
 
+	self:BeginBatch()
+
 	for idx, option in next, Library.Options do
 		self:ResetOption(idx, option)
-	end
-
-	if not RunService:IsStudio() then
-		local title = self:GetSaveTitle()
-		local path = self.Folder .. "/" .. title .. ".json"
-		pcall(writefile, path, json)
 	end
 
 	if decoded.__theme and type(decoded.__theme) == "string" then
 		Library:SetTheme(decoded.__theme)
 	end
+
 	for tabName, tabData in pairs(decoded) do
 		if tabName ~= "__theme" and type(tabData) == "table" then
 			for idx, optData in pairs(tabData) do
@@ -7438,11 +7527,9 @@ function SaveManager:ImportSave(json)
 					else
 						local suffix = "_" .. idx
 						for optIdx, optObj in next, Library.Options do
-							if optObj.Type == optData.type then
-								if optIdx:sub(-#suffix) == suffix then
-									pcall(function() self.Parser[optData.type].Load(optIdx, optData) end)
-									break
-								end
+							if optObj.Type == optData.type and optIdx:sub(-#suffix) == suffix then
+								pcall(function() self.Parser[optData.type].Load(optIdx, optData) end)
+								break
 							end
 						end
 					end
@@ -7450,6 +7537,18 @@ function SaveManager:ImportSave(json)
 			end
 		end
 	end
+
+	local ok, err = true, nil
+	if not RunService:IsStudio() then
+		self:BuildFolderTree()
+		local title = self:GetSaveTitle()
+		local path = self.Folder .. "/" .. title .. ".json"
+		ok, err = pcall(writefile, path, json)
+	end
+
+	self:EndBatch()
+
+	if not ok then return false, err end
 	return true
 end
 
@@ -7462,14 +7561,18 @@ function SaveManager:HookOption(option)
 	local orig = option.Callback
 	option.Callback = function(...)
 		if orig then pcall(orig, ...) end
-		if not SaveManager._saveDebounce then
-			SaveManager._saveDebounce = true
-			task.defer(function()
-				task.wait(0.35)
+		if not SaveManager._enabled or SaveManager._saveDebounce then return end
+		SaveManager._saveDebounce = true
+		local operationId = SaveManager._operationId
+		task.defer(function()
+			task.wait(0.35)
+			if SaveManager._operationId ~= operationId or not SaveManager._enabled then
 				SaveManager._saveDebounce = false
-				pcall(function() SaveManager:Save() end)
-			end)
-		end
+				return
+			end
+			SaveManager._saveDebounce = false
+			pcall(function() SaveManager:Save() end)
+		end)
 	end
 end
 
@@ -7501,6 +7604,8 @@ function SaveManager:ClearSave()
 		end
 	end)
 
+	self:BeginBatch()
+
 	for idx, option in next, Library.Options do
 		self:ResetOption(idx, option)
 	end
@@ -7508,6 +7613,7 @@ function SaveManager:ClearSave()
 	pcall(function() Library:SetTheme(self.DefaultTheme or "Dark") end)
 
 	self:BuildFolderTree()
+	self:EndBatch()
 
 	if not ok then return false, err end
 	return true
@@ -7614,17 +7720,39 @@ Library.CreateWindow = function(self, Config)
 		else
 			return false, "SetSize expects a UDim2 or {X=number, Y=number}"
 		end
+
 		Window.Size = newSize
+
+		if Window._SizeMotor then
+			Window._SizeMotor:setGoal({
+				X = Flipper.Instant.new(newSize.X.Offset),
+				Y = Flipper.Instant.new(newSize.Y.Offset),
+			})
+		elseif Window.Root then
+			Window.Root.Size = newSize
+		end
+
 		if Window.Root then
 			Window.Root.Size = newSize
 		end
+
 		local vp = Camera.ViewportSize
 		local x = math.max(0, (vp.X - newSize.X.Offset) / 2)
 		local y = math.max(0, (vp.Y - newSize.Y.Offset) / 2)
 		Window.Position = UDim2.fromOffset(math.floor(x), math.floor(y))
+
 		if Window.Root then
 			Window.Root.Position = Window.Position
 		end
+
+		if Window.UpdateTabHolderLayout then
+			Window:UpdateTabHolderLayout()
+		end
+
+		if Window._TabModule then
+			Window._TabModule:RefreshSize()
+		end
+
 		return true
 	end
 
