@@ -15,6 +15,28 @@ Library.Icons = {
 	Close = "rbxassetid://9886659671",
 }
 
+Library.ThemeOrder = {
+	"Dark",
+	"Darker",
+	"AMOLED",
+	"Light",
+	"Balloon",
+	"SoftCream",
+	"Aqua",
+	"Amethyst",
+	"Rose",
+	"Midnight",
+	"Forest",
+	"Sunset",
+	"Ocean",
+	"Emerald",
+	"Sapphire",
+	"Cloud",
+	"Grape",
+	"Bloody",
+	"Arctic",
+}
+
 Library.Themes = {
 	Dark = {
 		Background = Color3.fromRGB(32, 32, 32),
@@ -28,6 +50,30 @@ Library.Themes = {
 		AccentText = Color3.fromRGB(0, 0, 0),
 		Track = Color3.fromRGB(88, 88, 88),
 	},
+	Darker = {
+		Background = Color3.fromRGB(20, 20, 20),
+		Sidebar = Color3.fromRGB(15, 15, 15),
+		Card = Color3.fromRGB(30, 30, 30),
+		CardHover = Color3.fromRGB(40, 40, 40),
+		Stroke = Color3.fromRGB(52, 52, 52),
+		Text = Color3.fromRGB(255, 255, 255),
+		SubText = Color3.fromRGB(160, 160, 160),
+		Accent = Color3.fromRGB(96, 205, 255),
+		AccentText = Color3.fromRGB(0, 0, 0),
+		Track = Color3.fromRGB(70, 70, 70),
+	},
+	AMOLED = {
+		Background = Color3.fromRGB(0, 0, 0),
+		Sidebar = Color3.fromRGB(0, 0, 0),
+		Card = Color3.fromRGB(14, 14, 14),
+		CardHover = Color3.fromRGB(24, 24, 24),
+		Stroke = Color3.fromRGB(38, 38, 38),
+		Text = Color3.fromRGB(255, 255, 255),
+		SubText = Color3.fromRGB(150, 150, 150),
+		Accent = Color3.fromRGB(80, 200, 255),
+		AccentText = Color3.fromRGB(0, 0, 0),
+		Track = Color3.fromRGB(60, 60, 60),
+	},
 	Light = {
 		Background = Color3.fromRGB(243, 243, 243),
 		Sidebar = Color3.fromRGB(235, 235, 235),
@@ -40,29 +86,53 @@ Library.Themes = {
 		AccentText = Color3.fromRGB(255, 255, 255),
 		Track = Color3.fromRGB(160, 160, 160),
 	},
-	Midnight = {
-		Background = Color3.fromRGB(13, 17, 28),
-		Sidebar = Color3.fromRGB(9, 12, 21),
-		Card = Color3.fromRGB(22, 28, 45),
-		CardHover = Color3.fromRGB(31, 39, 63),
-		Stroke = Color3.fromRGB(42, 52, 82),
-		Text = Color3.fromRGB(236, 240, 255),
-		SubText = Color3.fromRGB(140, 152, 184),
-		Accent = Color3.fromRGB(122, 162, 255),
-		AccentText = Color3.fromRGB(8, 12, 24),
-		Track = Color3.fromRGB(52, 62, 92),
+	Balloon = {
+		Background = Color3.fromRGB(255, 243, 248),
+		Sidebar = Color3.fromRGB(252, 232, 242),
+		Card = Color3.fromRGB(255, 255, 255),
+		CardHover = Color3.fromRGB(255, 238, 246),
+		Stroke = Color3.fromRGB(240, 206, 222),
+		Text = Color3.fromRGB(58, 32, 48),
+		SubText = Color3.fromRGB(150, 108, 130),
+		Accent = Color3.fromRGB(255, 92, 160),
+		AccentText = Color3.fromRGB(255, 255, 255),
+		Track = Color3.fromRGB(230, 190, 208),
 	},
-	Ocean = {
-		Background = Color3.fromRGB(12, 27, 38),
-		Sidebar = Color3.fromRGB(8, 20, 29),
-		Card = Color3.fromRGB(20, 42, 57),
-		CardHover = Color3.fromRGB(28, 56, 75),
-		Stroke = Color3.fromRGB(38, 72, 94),
-		Text = Color3.fromRGB(232, 248, 252),
-		SubText = Color3.fromRGB(137, 170, 184),
-		Accent = Color3.fromRGB(56, 214, 200),
-		AccentText = Color3.fromRGB(4, 24, 24),
-		Track = Color3.fromRGB(46, 80, 100),
+	SoftCream = {
+		Background = Color3.fromRGB(250, 246, 236),
+		Sidebar = Color3.fromRGB(243, 237, 223),
+		Card = Color3.fromRGB(255, 252, 244),
+		CardHover = Color3.fromRGB(246, 240, 226),
+		Stroke = Color3.fromRGB(225, 216, 196),
+		Text = Color3.fromRGB(52, 46, 36),
+		SubText = Color3.fromRGB(128, 118, 98),
+		Accent = Color3.fromRGB(196, 138, 60),
+		AccentText = Color3.fromRGB(255, 255, 255),
+		Track = Color3.fromRGB(206, 196, 174),
+	},
+	Aqua = {
+		Background = Color3.fromRGB(232, 248, 250),
+		Sidebar = Color3.fromRGB(220, 240, 244),
+		Card = Color3.fromRGB(246, 253, 254),
+		CardHover = Color3.fromRGB(230, 246, 248),
+		Stroke = Color3.fromRGB(188, 224, 230),
+		Text = Color3.fromRGB(16, 52, 60),
+		SubText = Color3.fromRGB(80, 124, 134),
+		Accent = Color3.fromRGB(0, 160, 176),
+		AccentText = Color3.fromRGB(255, 255, 255),
+		Track = Color3.fromRGB(168, 208, 216),
+	},
+	Amethyst = {
+		Background = Color3.fromRGB(30, 20, 44),
+		Sidebar = Color3.fromRGB(23, 15, 35),
+		Card = Color3.fromRGB(45, 32, 66),
+		CardHover = Color3.fromRGB(57, 42, 82),
+		Stroke = Color3.fromRGB(78, 60, 110),
+		Text = Color3.fromRGB(244, 236, 255),
+		SubText = Color3.fromRGB(170, 152, 200),
+		Accent = Color3.fromRGB(190, 120, 255),
+		AccentText = Color3.fromRGB(24, 6, 46),
+		Track = Color3.fromRGB(84, 66, 116),
 	},
 	Rose = {
 		Background = Color3.fromRGB(36, 24, 30),
@@ -76,6 +146,54 @@ Library.Themes = {
 		AccentText = Color3.fromRGB(40, 6, 18),
 		Track = Color3.fromRGB(92, 66, 78),
 	},
+	Midnight = {
+		Background = Color3.fromRGB(13, 17, 28),
+		Sidebar = Color3.fromRGB(9, 12, 21),
+		Card = Color3.fromRGB(22, 28, 45),
+		CardHover = Color3.fromRGB(31, 39, 63),
+		Stroke = Color3.fromRGB(42, 52, 82),
+		Text = Color3.fromRGB(236, 240, 255),
+		SubText = Color3.fromRGB(140, 152, 184),
+		Accent = Color3.fromRGB(122, 162, 255),
+		AccentText = Color3.fromRGB(8, 12, 24),
+		Track = Color3.fromRGB(52, 62, 92),
+	},
+	Forest = {
+		Background = Color3.fromRGB(16, 28, 20),
+		Sidebar = Color3.fromRGB(11, 21, 15),
+		Card = Color3.fromRGB(25, 42, 31),
+		CardHover = Color3.fromRGB(33, 54, 40),
+		Stroke = Color3.fromRGB(46, 72, 54),
+		Text = Color3.fromRGB(232, 248, 236),
+		SubText = Color3.fromRGB(130, 164, 140),
+		Accent = Color3.fromRGB(110, 200, 90),
+		AccentText = Color3.fromRGB(8, 26, 6),
+		Track = Color3.fromRGB(52, 80, 60),
+	},
+	Sunset = {
+		Background = Color3.fromRGB(34, 20, 24),
+		Sidebar = Color3.fromRGB(27, 15, 19),
+		Card = Color3.fromRGB(52, 32, 36),
+		CardHover = Color3.fromRGB(66, 40, 42),
+		Stroke = Color3.fromRGB(92, 56, 56),
+		Text = Color3.fromRGB(255, 240, 232),
+		SubText = Color3.fromRGB(196, 152, 140),
+		Accent = Color3.fromRGB(255, 128, 72),
+		AccentText = Color3.fromRGB(40, 12, 0),
+		Track = Color3.fromRGB(98, 64, 60),
+	},
+	Ocean = {
+		Background = Color3.fromRGB(12, 27, 38),
+		Sidebar = Color3.fromRGB(8, 20, 29),
+		Card = Color3.fromRGB(20, 42, 57),
+		CardHover = Color3.fromRGB(28, 56, 75),
+		Stroke = Color3.fromRGB(38, 72, 94),
+		Text = Color3.fromRGB(232, 248, 252),
+		SubText = Color3.fromRGB(137, 170, 184),
+		Accent = Color3.fromRGB(56, 214, 200),
+		AccentText = Color3.fromRGB(4, 24, 24),
+		Track = Color3.fromRGB(46, 80, 100),
+	},
 	Emerald = {
 		Background = Color3.fromRGB(20, 30, 25),
 		Sidebar = Color3.fromRGB(15, 24, 19),
@@ -88,54 +206,72 @@ Library.Themes = {
 		AccentText = Color3.fromRGB(4, 28, 14),
 		Track = Color3.fromRGB(58, 84, 68),
 	},
-	Amber = {
-		Background = Color3.fromRGB(34, 28, 20),
-		Sidebar = Color3.fromRGB(27, 22, 15),
-		Card = Color3.fromRGB(49, 41, 30),
-		CardHover = Color3.fromRGB(60, 50, 36),
-		Stroke = Color3.fromRGB(84, 70, 48),
-		Text = Color3.fromRGB(255, 248, 235),
-		SubText = Color3.fromRGB(186, 168, 140),
-		Accent = Color3.fromRGB(255, 184, 56),
-		AccentText = Color3.fromRGB(36, 22, 0),
-		Track = Color3.fromRGB(94, 80, 56),
-	},
-	Purple = {
-		Background = Color3.fromRGB(28, 22, 40),
-		Sidebar = Color3.fromRGB(22, 17, 33),
-		Card = Color3.fromRGB(41, 33, 59),
-		CardHover = Color3.fromRGB(51, 42, 72),
-		Stroke = Color3.fromRGB(70, 58, 100),
-		Text = Color3.fromRGB(246, 240, 255),
-		SubText = Color3.fromRGB(168, 155, 196),
-		Accent = Color3.fromRGB(178, 128, 255),
-		AccentText = Color3.fromRGB(24, 8, 48),
-		Track = Color3.fromRGB(78, 66, 108),
-	},
-	Crimson = {
-		Background = Color3.fromRGB(30, 20, 22),
-		Sidebar = Color3.fromRGB(24, 15, 17),
-		Card = Color3.fromRGB(45, 31, 34),
-		CardHover = Color3.fromRGB(56, 38, 42),
-		Stroke = Color3.fromRGB(78, 52, 57),
-		Text = Color3.fromRGB(255, 242, 243),
-		SubText = Color3.fromRGB(184, 152, 156),
-		Accent = Color3.fromRGB(235, 64, 72),
+	Sapphire = {
+		Background = Color3.fromRGB(14, 22, 46),
+		Sidebar = Color3.fromRGB(9, 16, 36),
+		Card = Color3.fromRGB(22, 34, 68),
+		CardHover = Color3.fromRGB(30, 46, 88),
+		Stroke = Color3.fromRGB(44, 64, 118),
+		Text = Color3.fromRGB(232, 240, 255),
+		SubText = Color3.fromRGB(138, 158, 204),
+		Accent = Color3.fromRGB(64, 128, 255),
 		AccentText = Color3.fromRGB(255, 255, 255),
-		Track = Color3.fromRGB(90, 64, 68),
+		Track = Color3.fromRGB(50, 72, 126),
 	},
-	Mocha = {
-		Background = Color3.fromRGB(30, 30, 46),
-		Sidebar = Color3.fromRGB(24, 24, 37),
-		Card = Color3.fromRGB(49, 50, 68),
-		CardHover = Color3.fromRGB(59, 60, 80),
-		Stroke = Color3.fromRGB(69, 71, 90),
-		Text = Color3.fromRGB(205, 214, 244),
-		SubText = Color3.fromRGB(166, 173, 200),
-		Accent = Color3.fromRGB(203, 166, 247),
-		AccentText = Color3.fromRGB(30, 20, 46),
-		Track = Color3.fromRGB(88, 91, 112),
+	Cloud = {
+		Background = Color3.fromRGB(238, 242, 248),
+		Sidebar = Color3.fromRGB(228, 234, 243),
+		Card = Color3.fromRGB(250, 252, 255),
+		CardHover = Color3.fromRGB(238, 243, 250),
+		Stroke = Color3.fromRGB(208, 217, 230),
+		Text = Color3.fromRGB(28, 36, 52),
+		SubText = Color3.fromRGB(100, 112, 134),
+		Accent = Color3.fromRGB(70, 120, 220),
+		AccentText = Color3.fromRGB(255, 255, 255),
+		Track = Color3.fromRGB(176, 188, 208),
 	},
+	Grape = {
+		Background = Color3.fromRGB(36, 18, 40),
+		Sidebar = Color3.fromRGB(28, 12, 32),
+		Card = Color3.fromRGB(56, 30, 62),
+		CardHover = Color3.fromRGB(70, 40, 78),
+		Stroke = Color3.fromRGB(98, 56, 106),
+		Text = Color3.fromRGB(255, 238, 255),
+		SubText = Color3.fromRGB(190, 150, 196),
+		Accent = Color3.fromRGB(220, 100, 230),
+		AccentText = Color3.fromRGB(40, 4, 44),
+		Track = Color3.fromRGB(104, 62, 112),
+	},
+	Bloody = {
+		Background = Color3.fromRGB(24, 8, 10),
+		Sidebar = Color3.fromRGB(17, 4, 6),
+		Card = Color3.fromRGB(42, 14, 18),
+		CardHover = Color3.fromRGB(56, 18, 24),
+		Stroke = Color3.fromRGB(84, 26, 32),
+		Text = Color3.fromRGB(255, 232, 232),
+		SubText = Color3.fromRGB(188, 128, 132),
+		Accent = Color3.fromRGB(220, 20, 40),
+		AccentText = Color3.fromRGB(255, 255, 255),
+		Track = Color3.fromRGB(92, 30, 36),
+	},
+	Arctic = {
+		Background = Color3.fromRGB(244, 249, 252),
+		Sidebar = Color3.fromRGB(232, 242, 248),
+		Card = Color3.fromRGB(255, 255, 255),
+		CardHover = Color3.fromRGB(238, 246, 251),
+		Stroke = Color3.fromRGB(204, 222, 234),
+		Text = Color3.fromRGB(20, 40, 56),
+		SubText = Color3.fromRGB(90, 116, 134),
+		Accent = Color3.fromRGB(40, 150, 220),
+		AccentText = Color3.fromRGB(255, 255, 255),
+		Track = Color3.fromRGB(180, 202, 218),
+	},
+}
+
+Library.Fonts = {
+	Regular = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
+	Medium = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
+	SemiBold = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
 }
 
 local function resolveTheme(value)
@@ -157,10 +293,11 @@ end
 
 function Library:GetThemes()
 	local names = {}
-	for name in pairs(self.Themes) do
-		table.insert(names, name)
+	for _, name in ipairs(self.ThemeOrder) do
+		if self.Themes[name] then
+			table.insert(names, name)
+		end
 	end
-	table.sort(names)
 	return names
 end
 
@@ -294,7 +431,7 @@ local function text(props)
 	local p = {
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Font = Enum.Font.Gotham,
+		FontFace = Library.Fonts.Regular,
 		TextSize = 13,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Center,
@@ -434,7 +571,7 @@ function Library:CreateWindow(config)
 	}
 
 	local title = tostring(config.Title or "Window")
-	local subTitle = tostring(config.SubTitle or "")
+	local subTitle = tostring(config.SubTitle or config.Description or "")
 	local tabWidth = math.clamp(tonumber(config.TabWidth) or 140, 80, 260)
 	local size = config.Size or UDim2.fromOffset(640, 420)
 	local toggleKey = config.ToggleKey
@@ -584,6 +721,14 @@ function Library:CreateWindow(config)
 		return SaveManager:ImportSave(raw)
 	end
 
+	function Window:ExportSave()
+		return SaveManager:ExportSave()
+	end
+
+	function Window:ClearSave()
+		return SaveManager:ClearSave()
+	end
+
 	function Window:_WriteSave()
 		if not self.HasSave then
 			return false
@@ -687,7 +832,6 @@ function Library:CreateWindow(config)
 	bind(main, {BackgroundColor3 = "Background"})
 	glass(main, 0, 0.2)
 	bind(mainStroke, {Color = "Stroke"})
-	local scale = create("UIScale", {Scale = 1, Parent = main})
 	Window.Main = main
 
 	local header = create("Frame", {
@@ -699,7 +843,7 @@ function Library:CreateWindow(config)
 
 	local headerTitle = create("Frame", {
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(16, 0),
+		Position = UDim2.fromOffset(12, 0),
 		Size = UDim2.new(1, -150, 1, 0),
 		ClipsDescendants = true,
 		Parent = header,
@@ -707,34 +851,49 @@ function Library:CreateWindow(config)
 	create("UIListLayout", {
 		FillDirection = Enum.FillDirection.Horizontal,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
-		Padding = UDim.new(0, 10),
+		Padding = UDim.new(0, 5),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		Parent = headerTitle,
 	})
 
+	local iconValue = config.Icon and tostring(config.Icon) or ""
+	local hasIcon = iconValue ~= ""
+	if hasIcon then
+		local titleIcon = create("ImageLabel", {
+			BackgroundTransparency = 1,
+			Size = UDim2.fromOffset(20, 20),
+			Image = iconValue,
+			LayoutOrder = 1,
+			Parent = headerTitle,
+		})
+		bind(titleIcon, {ImageColor3 = "Text"})
+	end
+
 	local titleLabel = text({
-		Size = UDim2.fromOffset(0, 20),
+		Size = UDim2.fromScale(0, 1),
 		AutomaticSize = Enum.AutomaticSize.X,
-		Font = Enum.Font.GothamBold,
-		TextSize = 15,
+		FontFace = Library.Fonts.SemiBold,
+		TextSize = 13,
 		RichText = true,
 		Text = title,
-		LayoutOrder = 1,
+		LayoutOrder = hasIcon and 2 or 1,
 		Parent = headerTitle,
 	})
 	bind(titleLabel, {TextColor3 = "Text"})
 
 	local subTitleLabel = text({
-		Size = UDim2.fromOffset(0, 20),
+		Size = UDim2.fromScale(0, 1),
 		AutomaticSize = Enum.AutomaticSize.X,
-		TextSize = 12,
+		FontFace = Library.Fonts.Regular,
+		TextSize = 13,
+		TextTransparency = 0.4,
 		RichText = true,
 		Text = subTitle,
 		Visible = subTitle ~= "",
-		LayoutOrder = 2,
+		LayoutOrder = hasIcon and 3 or 2,
 		Parent = headerTitle,
 	})
-	bind(subTitleLabel, {TextColor3 = "SubText"})
+	bind(subTitleLabel, {TextColor3 = "Text"})
 
 	local headerLine = create("Frame", {
 		Position = UDim2.fromOffset(0, 46),
@@ -817,7 +976,7 @@ function Library:CreateWindow(config)
 			BorderSizePixel = 0,
 			Position = UDim2.fromOffset(32, 0),
 			Size = UDim2.new(1, -38, 1, 0),
-			Font = Enum.Font.Gotham,
+			FontFace = Library.Fonts.Regular,
 			TextSize = 13,
 			PlaceholderText = "Search...",
 			Text = "",
@@ -847,7 +1006,7 @@ function Library:CreateWindow(config)
 	local headingTitle = text({
 		Position = UDim2.fromOffset(20, 14),
 		Size = UDim2.new(1, -40, 0, 22),
-		Font = Enum.Font.GothamBold,
+		FontFace = Library.Fonts.SemiBold,
 		TextSize = 18,
 		RichText = true,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -963,8 +1122,6 @@ function Library:CreateWindow(config)
 		return not Window.Maximized
 	end)
 
-	local visibilityToken = 0
-
 	function Window:ClosePopups()
 		for _, closer in ipairs(self.PopupClosers) do
 			closer()
@@ -977,21 +1134,10 @@ function Library:CreateWindow(config)
 		end
 		state = state == true
 		self.Visible = state
-		visibilityToken += 1
-		local myToken = visibilityToken
-		if state then
-			main.Visible = true
-			scale.Scale = 0.94
-			tween(scale, 0.18, {Scale = 1})
-		else
+		if not state then
 			self:ClosePopups()
-			tween(scale, 0.15, {Scale = 0.94})
-			task.delay(0.16, function()
-				if myToken == visibilityToken and not self.Destroyed then
-					main.Visible = false
-				end
-			end)
 		end
+		main.Visible = state
 	end
 
 	function Window:Toggle()
@@ -1151,7 +1297,7 @@ function Library:CreateWindow(config)
 
 		local titleObj = text({
 			Size = UDim2.new(1, 0, 0, 22),
-			Font = Enum.Font.GothamBold,
+			FontFace = Library.Fonts.SemiBold,
 			TextSize = 20,
 			RichText = true,
 			Text = tostring(cfg.Title or "Dialog"),
@@ -1236,7 +1382,7 @@ function Library:CreateWindow(config)
 				AutoButtonColor = false,
 				BorderSizePixel = 0,
 				Text = stripTags(info.Title or "Button"),
-				Font = Enum.Font.GothamMedium,
+				FontFace = Library.Fonts.Medium,
 				TextSize = 13,
 				Size = UDim2.new(1 / count, -(10 * (count - 1)) / count, 1, 0),
 				LayoutOrder = index,
@@ -1355,7 +1501,7 @@ function Library:CreateWindow(config)
 			local label = text({
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Font = font,
+				FontFace = font,
 				TextSize = size,
 				TextWrapped = true,
 				TextYAlignment = Enum.TextYAlignment.Top,
@@ -1369,9 +1515,9 @@ function Library:CreateWindow(config)
 			bind(label, {TextColor3 = colorKey})
 		end
 
-		line(titleValue, 1, Enum.Font.GothamMedium, 13, "Text")
-		line(contentValue, 2, Enum.Font.Gotham, 14, "Text")
-		line(subValue, 3, Enum.Font.Gotham, 13, "SubText")
+		line(titleValue, 1, Library.Fonts.Medium, 13, "Text")
+		line(contentValue, 2, Library.Fonts.Regular, 14, "Text")
+		line(subValue, 3, Library.Fonts.Regular, 13, "SubText")
 
 		local closeButton = create("TextButton", {
 			AnchorPoint = Vector2.new(1, 0),
@@ -1493,12 +1639,11 @@ function Library:CreateWindow(config)
 		})
 		corner(button, tonumber(cfg.Corner) or 12)
 		bind(button, {BackgroundColor3 = "Card"})
-		local buttonScale = create("UIScale", {Scale = 1, Parent = button})
 
 		local fallback = text({
 			Size = UDim2.fromScale(1, 1),
 			Text = string.upper(string.sub(stripTags(title), 1, 1)),
-			Font = Enum.Font.GothamBold,
+			FontFace = Library.Fonts.SemiBold,
 			TextSize = 22,
 			TextXAlignment = Enum.TextXAlignment.Center,
 			Visible = button.Image == "",
@@ -1516,13 +1661,6 @@ function Library:CreateWindow(config)
 				Window:Toggle()
 			end)
 		end
-
-		connect(button.MouseEnter, function()
-			tween(buttonScale, 0.12, {Scale = 1.06})
-		end)
-		connect(button.MouseLeave, function()
-			tween(buttonScale, 0.12, {Scale = 1})
-		end)
 
 		function Minimizer:SetVisible(state)
 			button.Visible = state == true
@@ -1695,7 +1833,7 @@ function Library:CreateWindow(config)
 		local label = text({
 			Position = UDim2.fromOffset(textOffset, 0),
 			Size = UDim2.new(1, -textOffset - 8, 1, 0),
-			Font = Enum.Font.GothamMedium,
+			FontFace = Library.Fonts.Medium,
 			RichText = true,
 			Text = Tab.Title,
 			TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1907,7 +2045,7 @@ function Library:CreateWindow(config)
 			local titleObj = text({
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
-				Font = Enum.Font.GothamMedium,
+				FontFace = Library.Fonts.Medium,
 				TextSize = 14,
 				TextWrapped = true,
 				RichText = true,
@@ -1932,7 +2070,51 @@ function Library:CreateWindow(config)
 		end
 
 		local function finish(obj, card, titleObj, descObj)
-			table.insert(ctx.Items, {Kind = "Element", Card = card, TitleObj = titleObj, DescObj = descObj, Section = ctx.Section})
+			local items = ctx.Items
+			local entry = {Kind = "Element", Card = card, TitleObj = titleObj, DescObj = descObj, Section = ctx.Section}
+			table.insert(items, entry)
+			local removed = false
+
+			local function setLabel(label, value)
+				value = tostring(value == nil and "" or value)
+				local shown = rich(value)
+				if label.Text ~= shown then
+					label.Text = shown
+				end
+				label.Visible = value ~= ""
+				if searchQuery ~= "" then
+					Window:ApplySearch()
+				end
+			end
+
+			function obj:SetTitle(value)
+				setLabel(titleObj, value)
+			end
+
+			function obj:SetDesc(value)
+				setLabel(descObj, value)
+			end
+
+			function obj:Destroy()
+				if removed then
+					return
+				end
+				removed = true
+				for index, item in ipairs(items) do
+					if item == entry then
+						table.remove(items, index)
+						break
+					end
+				end
+				if obj.OnDestroy then
+					pcall(obj.OnDestroy, obj)
+				end
+				card:Destroy()
+				if searchQuery ~= "" then
+					Window:ApplySearch()
+				end
+			end
+
 			if searchQuery ~= "" then
 				Window:ApplySearch()
 			end
@@ -1977,7 +2159,7 @@ function Library:CreateWindow(config)
 				AnchorPoint = Vector2.new(0, 1),
 				Position = UDim2.new(0, 12, 1, -2),
 				Size = UDim2.new(1, -14, 0, 18),
-				Font = Enum.Font.GothamBold,
+				FontFace = Library.Fonts.SemiBold,
 				TextSize = 13,
 				RichText = true,
 				Text = textValue,
@@ -2066,6 +2248,13 @@ function Library:CreateWindow(config)
 			local _, titleObj, descObj = newText(body, info, UDim2.new(1, 0, 0, 0))
 			titleObj.Visible = tostring(info.Title) ~= ""
 			descObj.TextSize = 13
+
+			function Paragraph:SetContent(value)
+				self:SetDesc(value)
+			end
+
+			Paragraph.SetValue = Paragraph.SetContent
+			Paragraph.SetText = Paragraph.SetContent
 
 			return finish(Paragraph, card, titleObj, descObj)
 		end
@@ -2167,7 +2356,11 @@ function Library:CreateWindow(config)
 			if max <= min then
 				max = min + 1
 			end
-			local increment = tonumber(data.Increment) or 1
+			local increment = tonumber(data.Increment)
+			if not increment and data.Rounding ~= nil then
+				increment = 10 ^ -math.max(0, math.floor(tonumber(data.Rounding) or 0))
+			end
+			increment = increment or 1
 			if increment <= 0 then
 				increment = 1
 			end
@@ -2220,7 +2413,7 @@ function Library:CreateWindow(config)
 				AnchorPoint = Vector2.new(1, 0.5),
 				Position = UDim2.new(1, 0, 0.5, 0),
 				Size = UDim2.fromOffset(52, 16),
-				Font = Enum.Font.GothamMedium,
+				FontFace = Library.Fonts.Medium,
 				TextXAlignment = Enum.TextXAlignment.Right,
 				TextTruncate = Enum.TextTruncate.AtEnd,
 				Parent = area,
@@ -2399,7 +2592,7 @@ function Library:CreateWindow(config)
 				BorderSizePixel = 0,
 				Position = UDim2.fromOffset(10, 0),
 				Size = UDim2.new(1, -20, 1, 0),
-				Font = Enum.Font.Gotham,
+				FontFace = Library.Fonts.Regular,
 				TextSize = 13,
 				PlaceholderText = tostring(data.Placeholder or "Type here..."),
 				Text = "",
@@ -2531,10 +2724,18 @@ function Library:CreateWindow(config)
 					end
 				else
 					local keys = {}
-					for key in pairs(list) do
-						table.insert(keys, tostring(key))
+					if list == Library.Themes then
+						for _, key in ipairs(Library.ThemeOrder) do
+							if list[key] then
+								table.insert(keys, key)
+							end
+						end
+					else
+						for key in pairs(list) do
+							table.insert(keys, tostring(key))
+						end
+						table.sort(keys)
 					end
-					table.sort(keys)
 					for _, key in ipairs(keys) do
 						add(key)
 					end
@@ -2643,7 +2844,7 @@ function Library:CreateWindow(config)
 				BorderSizePixel = 0,
 				Position = UDim2.fromOffset(28, 0),
 				Size = UDim2.new(1, -34, 1, 0),
-				Font = Enum.Font.Gotham,
+				FontFace = Library.Fonts.Regular,
 				TextSize = 13,
 				PlaceholderText = "Search...",
 				Text = "",
@@ -2886,6 +3087,16 @@ function Library:CreateWindow(config)
 				end
 			end
 
+			function Dropdown:OnDestroy()
+				closePopup()
+				if renderConnection then
+					renderConnection:Disconnect()
+					renderConnection = nil
+				end
+				blocker:Destroy()
+				popup:Destroy()
+			end
+
 			table.insert(Window.PopupClosers, closePopup)
 
 			local function rebuild()
@@ -3046,7 +3257,7 @@ function Library:CreateWindow(config)
 				AutoButtonColor = false,
 				BorderSizePixel = 0,
 				Text = stripTags(SubTab.Title),
-				Font = Enum.Font.GothamMedium,
+				FontFace = Library.Fonts.Medium,
 				TextSize = 13,
 				Size = UDim2.fromOffset(0, 30),
 				AutomaticSize = Enum.AutomaticSize.X,
