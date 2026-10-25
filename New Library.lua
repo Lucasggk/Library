@@ -852,6 +852,17 @@ function Library:CreateWindow(config)
 	gui.Parent = ParentGui
 	Window.Gui = gui
 
+	local bounds = create("Frame", {
+		Name = "Bounds",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Active = false,
+		Position = UDim2.fromScale(0, 0),
+		Size = UDim2.fromScale(1, 1),
+		Parent = gui,
+	})
+	Window.Bounds = bounds
+
 	local function connect(signal, fn)
 		local connection = signal:Connect(fn)
 		table.insert(Window.Connections, connection)
@@ -1749,9 +1760,31 @@ function Library:CreateWindow(config)
 			ScaleType = Enum.ScaleType.Crop,
 			Visible = cfg.Visible ~= false,
 			ZIndex = 20,
-			Parent = gui,
+			Parent = bounds,
 		})
 		corner(button, tonumber(cfg.Corner) or 12)
+
+		local function keepInside()
+			if not button.Parent then
+				return
+			end
+			local boundsPos = bounds.AbsolutePosition
+			local boundsSize = bounds.AbsoluteSize
+			local buttonPos = button.AbsolutePosition
+			local buttonSize = button.AbsoluteSize
+			local x = math.clamp(buttonPos.X, boundsPos.X, math.max(boundsPos.X, boundsPos.X + boundsSize.X - buttonSize.X))
+			local y = math.clamp(buttonPos.Y, boundsPos.Y, math.max(boundsPos.Y, boundsPos.Y + boundsSize.Y - buttonSize.Y))
+			if x ~= buttonPos.X or y ~= buttonPos.Y then
+				button.Position = UDim2.fromOffset(x - boundsPos.X, y - boundsPos.Y)
+			end
+		end
+
+		local boundsConnections = {
+			button:GetPropertyChangedSignal("AbsolutePosition"):Connect(keepInside),
+			button:GetPropertyChangedSignal("AbsoluteSize"):Connect(keepInside),
+			bounds:GetPropertyChangedSignal("AbsoluteSize"):Connect(keepInside),
+		}
+		task.defer(keepInside)
 		bind(button, {BackgroundColor3 = "Card"})
 
 		local fallback = text({
@@ -1781,6 +1814,9 @@ function Library:CreateWindow(config)
 		end
 
 		function Minimizer:Destroy()
+			for _, connection in ipairs(boundsConnections) do
+				connection:Disconnect()
+			end
 			button:Destroy()
 			if Window.Minimizer == Minimizer then
 				Window.Minimizer = nil
