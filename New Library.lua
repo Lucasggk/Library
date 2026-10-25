@@ -1,8 +1,10 @@
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
+local GuiService = game:GetService("GuiService")
 
 local ParentGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
@@ -1750,74 +1752,147 @@ function Library:CreateWindow(config)
 		end
 
 		local Minimizer = {}
-		local button = create("ImageButton", {
+		local hasIcon = type(cfg.Icon) == "string" and cfg.Icon ~= ""
+		local cornerRadius = tonumber(cfg.Corner) or (Mobile and 12 or 14)
+		local backgroundTransparency = typeof(cfg.Transparency) == "number" and math.clamp(cfg.Transparency, 0, 1) or 0
+		local draggable = cfg.Draggable ~= false
+
+		local holder = create("Frame", {
 			Name = "Minimizer",
-			AutoButtonColor = false,
+			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-			Size = cfg.Size or UDim2.fromOffset(56, 56),
-			Position = cfg.Position or UDim2.fromOffset(20, 20),
-			Image = tostring(cfg.Icon or ""),
-			ScaleType = Enum.ScaleType.Crop,
+			Size = cfg.Size or UDim2.fromOffset(36, 36),
+			Position = cfg.Position or (Mobile and UDim2.new(0.45, 0, 0.025, 0) or UDim2.new(0, 300, 0, 20)),
 			Visible = cfg.Visible ~= false,
 			ZIndex = 20,
 			Parent = bounds,
 		})
-		corner(button, tonumber(cfg.Corner) or 12)
 
-		local function keepInside()
-			if not button.Parent then
-				return
-			end
+		local button = create("TextButton", {
+			Name = "MinimizeButton",
+			AutoButtonColor = true,
+			BorderSizePixel = 0,
+			Text = "",
+			BackgroundTransparency = hasIcon and 1 or backgroundTransparency,
+			Size = UDim2.fromScale(1, 1),
+			ZIndex = 21,
+			Parent = holder,
+		})
+		corner(button, cornerRadius)
+
+		if hasIcon then
+			local icon = create("ImageLabel", {
+				Name = "Icon",
+				Image = cfg.Icon,
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Size = UDim2.fromScale(1, 1),
+				ScaleType = Enum.ScaleType.Stretch,
+				ZIndex = 22,
+				Parent = button,
+			})
+			corner(icon, cornerRadius)
+		else
+			bind(button, {BackgroundColor3 = "Card"})
+			local buttonStroke = stroke(button, Mobile and 1.5 or 2, Mobile and 0.7 or 0.6)
+			bind(buttonStroke, {Color = "Stroke"})
+		end
+
+		local function limits()
 			local boundsPos = bounds.AbsolutePosition
 			local boundsSize = bounds.AbsoluteSize
-			local buttonPos = button.AbsolutePosition
-			local buttonSize = button.AbsoluteSize
-			local x = math.clamp(buttonPos.X, boundsPos.X, math.max(boundsPos.X, boundsPos.X + boundsSize.X - buttonSize.X))
-			local y = math.clamp(buttonPos.Y, boundsPos.Y, math.max(boundsPos.Y, boundsPos.Y + boundsSize.Y - buttonSize.Y))
-			if x ~= buttonPos.X or y ~= buttonPos.Y then
-				button.Position = UDim2.fromOffset(x - boundsPos.X, y - boundsPos.Y)
+			local size = holder.AbsoluteSize
+			local top = GuiService:GetGuiInset().Y
+			local okTopbar, topbar = pcall(function()
+				return GuiService.TopbarInset
+			end)
+			if okTopbar and typeof(topbar) == "Rect" then
+				top = math.max(top, topbar.Max.Y)
+			end
+			local minX = 0
+			local minY = math.max(0, top - boundsPos.Y)
+			local maxX = math.max(minX, boundsSize.X - size.X)
+			local maxY = math.max(minY, boundsSize.Y - size.Y)
+			return minX, minY, maxX, maxY
+		end
+
+		local function place(x, y)
+			local minX, minY, maxX, maxY = limits()
+			holder.Position = UDim2.fromOffset(math.clamp(x, minX, maxX), math.clamp(y, minY, maxY))
+		end
+
+		local function keepInside()
+			if not holder.Parent then
+				return
+			end
+			local minX, minY, maxX, maxY = limits()
+			local rel = holder.AbsolutePosition - bounds.AbsolutePosition
+			local x = math.clamp(rel.X, minX, maxX)
+			local y = math.clamp(rel.Y, minY, maxY)
+			if math.abs(x - rel.X) > 0.5 or math.abs(y - rel.Y) > 0.5 then
+				holder.Position = UDim2.fromOffset(x, y)
 			end
 		end
 
-		local boundsConnections = {
-			button:GetPropertyChangedSignal("AbsolutePosition"):Connect(keepInside),
-			button:GetPropertyChangedSignal("AbsoluteSize"):Connect(keepInside),
+		local dragging = false
+		local moved = false
+		local startMouse
+		local startRel
+
+		local connections = {
+			button.InputBegan:Connect(function(input)
+				if isPress(input) then
+					dragging = true
+					moved = false
+					startMouse = input.Position
+					startRel = holder.AbsolutePosition - bounds.AbsolutePosition
+				end
+			end),
+			UserInputService.InputChanged:Connect(function(input)
+				if not (dragging and draggable and isMove(input)) then
+					return
+				end
+				local delta = input.Position - startMouse
+				if delta.Magnitude > 5 then
+					moved = true
+				end
+				if moved then
+					place(startRel.X + delta.X, startRel.Y + delta.Y)
+				end
+			end),
+			UserInputService.InputEnded:Connect(function(input)
+				if dragging and isPress(input) then
+					dragging = false
+					if not moved then
+						Window:Toggle()
+					end
+				end
+			end),
 			bounds:GetPropertyChangedSignal("AbsoluteSize"):Connect(keepInside),
+			holder:GetPropertyChangedSignal("AbsoluteSize"):Connect(keepInside),
 		}
-		task.defer(keepInside)
-		bind(button, {BackgroundColor3 = "Card"})
 
-		local fallback = text({
-			Size = UDim2.fromScale(1, 1),
-			Text = string.upper(string.sub(stripTags(title), 1, 1)),
-			FontFace = Library.Fonts.SemiBold,
-			TextSize = 22,
-			TextXAlignment = Enum.TextXAlignment.Center,
-			Visible = button.Image == "",
-			ZIndex = 21,
-			Parent = button,
-		})
-		bind(fallback, {TextColor3 = "Text"})
-
-		if cfg.Draggable ~= false then
-			makeDraggable(button, button, connect, function()
-				Window:Toggle()
-			end, 5)
-		else
-			connect(button.MouseButton1Click, function()
-				Window:Toggle()
-			end)
+		local okSignal, topbarSignal = pcall(function()
+			return GuiService:GetPropertyChangedSignal("TopbarInset")
+		end)
+		if okSignal and topbarSignal then
+			table.insert(connections, topbarSignal:Connect(keepInside))
 		end
 
+		task.defer(keepInside)
+
+		Minimizer.Frame = holder
+
 		function Minimizer:SetVisible(state)
-			button.Visible = state == true
+			holder.Visible = state == true
+			keepInside()
 		end
 
 		function Minimizer:Destroy()
-			for _, connection in ipairs(boundsConnections) do
+			for _, connection in ipairs(connections) do
 				connection:Disconnect()
 			end
-			button:Destroy()
+			holder:Destroy()
 			if Window.Minimizer == Minimizer then
 				Window.Minimizer = nil
 			end
