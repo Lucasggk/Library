@@ -6,14 +6,7 @@ local HttpService = game:GetService("HttpService")
 
 local ParentGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
-local Library = {Flags = {}, Windows = {}, LastWindow = nil}
-
-Library.Icons = {
-	Min = "rbxassetid://9886659276",
-	Max = "rbxassetid://9886659406",
-	Restore = "rbxassetid://9886659001",
-	Close = "rbxassetid://9886659671",
-}
+local Library = {Flags = {}, Windows = {}, LastWindow = nil, MinimizeKey = Enum.KeyCode.LeftControl}
 
 Library.ThemeOrder = {
 	"Dark",
@@ -272,6 +265,13 @@ Library.Fonts = {
 	Regular = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
 	Medium = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium, Enum.FontStyle.Normal),
 	SemiBold = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.SemiBold, Enum.FontStyle.Normal),
+}
+
+Library.Icons = {
+	Min = "rbxassetid://9886659276",
+	Max = "rbxassetid://9886659406",
+	Restore = "rbxassetid://9886659001",
+	Close = "rbxassetid://9886659671",
 }
 
 local function resolveTheme(value)
@@ -574,9 +574,18 @@ function Library:CreateWindow(config)
 	local subTitle = tostring(config.SubTitle or config.Description or "")
 	local tabWidth = math.clamp(tonumber(config.TabWidth) or 140, 80, 260)
 	local size = config.Size or UDim2.fromOffset(640, 420)
-	local toggleKey = config.ToggleKey
-	if toggleKey == nil then
-		toggleKey = Enum.KeyCode.RightControl
+	local minimizeKey = config.MinimizeKey
+	if minimizeKey == nil then
+		minimizeKey = config.ToggleKey
+	end
+	if type(minimizeKey) == "string" then
+		local okKey, item = pcall(function()
+			return Enum.KeyCode[minimizeKey]
+		end)
+		minimizeKey = okKey and item or nil
+	end
+	if typeof(minimizeKey) == "EnumItem" then
+		Library.MinimizeKey = minimizeKey
 	end
 
 	local searchEnabled = config.Search
@@ -1144,6 +1153,10 @@ function Library:CreateWindow(config)
 		self:SetVisible(not self.Visible)
 	end
 
+	function Window:Minimize()
+		self:Toggle()
+	end
+
 	local restoreSize = main.Size
 	local restorePosition = main.Position
 
@@ -1607,16 +1620,19 @@ function Library:CreateWindow(config)
 		})
 	end)
 
-	if toggleKey then
-		connect(UserInputService.InputBegan, function(input, processed)
-			if processed then
-				return
-			end
-			if input.KeyCode == toggleKey then
+	connect(UserInputService.InputBegan, function(input)
+		if UserInputService:GetFocusedTextBox() then
+			return
+		end
+		local custom = Library.MinimizeKeybind
+		if type(custom) == "table" and custom.Type == "Keybind" then
+			if input.KeyCode.Name == custom.Value then
 				Window:Toggle()
 			end
-		end)
-	end
+		elseif input.KeyCode == Library.MinimizeKey then
+			Window:Toggle()
+		end
+	end)
 
 	function Window:CreateMinimizer(cfg)
 		cfg = cfg or {}
@@ -2173,7 +2189,7 @@ function Library:CreateWindow(config)
 			local contentOrder = nextOrder()
 			local sectionContext
 			local Section = {}
-			for _, name in ipairs({"AddButton", "AddParagraph", "AddToggle", "AddSlider", "AddInput", "AddDropdown"}) do
+			for _, name in ipairs({"AddButton", "AddParagraph", "AddToggle", "AddSlider", "AddInput", "AddDropdown", "AddKeybind"}) do
 				Section[name] = function(_, ...)
 					if not sectionContext then
 						local container = create("Frame", {
@@ -2744,10 +2760,7 @@ function Library:CreateWindow(config)
 			setOptions(data.Options or data.Values)
 
 			local function hasSearch()
-				if data.Search ~= nil then
-					return data.Search == true
-				end
-				return #options > 8
+				return data.Search ~= false
 			end
 
 			local card = newCard()
@@ -3218,6 +3231,185 @@ function Library:CreateWindow(config)
 			return finish(Dropdown, card, titleObj, descObj)
 		end
 
+		function Tab:AddKeybind(a, b)
+			local flag, data = splitArgs(a, b)
+			if data.Title == nil and data.Name == nil then
+				data.Title = "Keybind"
+			end
+			local rec = newFlag(flag, data)
+			local defaultKey = tostring(data.Default or "None")
+			local defaultMode = tostring(data.Mode or "Toggle")
+			local Keybind = {
+				Value = defaultKey,
+				Mode = defaultMode,
+				Toggled = false,
+				Type = "Keybind",
+			}
+			local picking = false
+
+			if type(rec.Saved) == "table" then
+				Keybind.Value = tostring(rec.Saved.Key or defaultKey)
+				Keybind.Mode = tostring(rec.Saved.Mode or defaultMode)
+			elseif rec.Saved ~= nil then
+				Keybind.Value = tostring(rec.Saved)
+			end
+
+			local card = newCard()
+			local _, row, overlay = newRow(card)
+			overlay:Destroy()
+			local _, titleObj, descObj = newText(row, data, UDim2.new(1, -120, 0, 0))
+
+			local display = create("TextButton", {
+				AutoButtonColor = false,
+				Text = "",
+				Size = UDim2.fromOffset(0, 30),
+				AutomaticSize = Enum.AutomaticSize.X,
+				BorderSizePixel = 0,
+				LayoutOrder = 2,
+				Parent = row,
+			})
+			corner(display, 6)
+			local displayStroke = stroke(display, 1, 0.2)
+			pad(display, 0, 0, 10, 10)
+			bind(display, {BackgroundColor3 = "CardHover"})
+			glass(display, 0, 0.3)
+			bind(displayStroke, {Color = "Stroke"})
+
+			local keyLabel = text({
+				Size = UDim2.new(0, 0, 1, 0),
+				AutomaticSize = Enum.AutomaticSize.X,
+				TextXAlignment = Enum.TextXAlignment.Center,
+				Text = Keybind.Value,
+				Parent = display,
+			})
+			bind(keyLabel, {TextColor3 = "Text"})
+
+			local function matches(input, key)
+				if key == "MouseLeft" then
+					return input.UserInputType == Enum.UserInputType.MouseButton1
+				elseif key == "MouseRight" then
+					return input.UserInputType == Enum.UserInputType.MouseButton2
+				end
+				return input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == key
+			end
+
+			function Keybind:GetState()
+				if UserInputService:GetFocusedTextBox() and Keybind.Mode ~= "Always" then
+					return false
+				end
+				if Keybind.Mode == "Always" then
+					return true
+				elseif Keybind.Mode == "Hold" then
+					local key = Keybind.Value
+					if key == "None" then
+						return false
+					end
+					if key == "MouseLeft" then
+						return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+					elseif key == "MouseRight" then
+						return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+					end
+					local okKey, code = pcall(function()
+						return Enum.KeyCode[key]
+					end)
+					if okKey and code then
+						return UserInputService:IsKeyDown(code)
+					end
+					return false
+				end
+				return Keybind.Toggled
+			end
+
+			function Keybind:SetValue(newKey, newMode)
+				if newKey ~= nil then
+					Keybind.Value = tostring(newKey)
+				end
+				if newMode ~= nil then
+					Keybind.Mode = tostring(newMode)
+				end
+				keyLabel.Text = Keybind.Value
+				commit(rec, Keybind.Value)
+			end
+
+			function Keybind:OnClick(callback)
+				Keybind.Clicked = callback
+			end
+
+			function Keybind:OnChanged(callback)
+				Keybind.Changed = callback
+				fire(callback, Keybind.Value)
+			end
+
+			function Keybind:DoClick()
+				fire(data.Callback, Keybind.Toggled)
+				fire(Keybind.Clicked, Keybind.Toggled)
+			end
+
+			connect(display.MouseButton1Click, function()
+				if picking then
+					return
+				end
+				picking = true
+				keyLabel.Text = "..."
+				task.delay(0.2, function()
+					if Window.Destroyed then
+						return
+					end
+					local began
+					began = connect(UserInputService.InputBegan, function(input)
+						local name
+						if input.UserInputType == Enum.UserInputType.Keyboard then
+							name = input.KeyCode.Name
+						elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+							name = "MouseLeft"
+						elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+							name = "MouseRight"
+						else
+							return
+						end
+						began:Disconnect()
+						local ended
+						ended = connect(UserInputService.InputEnded, function(endInput)
+							if not matches(endInput, name) then
+								return
+							end
+							ended:Disconnect()
+							picking = false
+							Keybind:SetValue(name)
+							local changed = endInput.UserInputType == Enum.UserInputType.Keyboard and endInput.KeyCode or endInput.UserInputType
+							fire(data.ChangedCallback, changed)
+							fire(Keybind.Changed, changed)
+						end)
+					end)
+				end)
+			end)
+
+			connect(UserInputService.InputBegan, function(input)
+				if picking or Keybind.Mode ~= "Toggle" or UserInputService:GetFocusedTextBox() then
+					return
+				end
+				if matches(input, Keybind.Value) then
+					Keybind.Toggled = not Keybind.Toggled
+					Keybind:DoClick()
+				end
+			end)
+
+			commit(rec, Keybind.Value, true)
+			rec.Default = defaultKey
+			rec.Get = function()
+				return Keybind.Value
+			end
+			rec.Set = function(v)
+				if type(v) == "table" then
+					Keybind:SetValue(v.Key, v.Mode)
+				else
+					Keybind:SetValue(v)
+				end
+			end
+
+			return finish(Keybind, card, titleObj, descObj, rec)
+		end
+
 		function Tab:AddSubTab(cfg)
 			if type(cfg) == "string" then
 				cfg = {Title = cfg}
@@ -3323,7 +3515,7 @@ function Library:CreateWindow(config)
 			end)
 
 			local subContext = {Container = container, Items = SubTab.Items, Order = 0, Sub = SubTab}
-			for _, name in ipairs({"AddSection", "AddButton", "AddParagraph", "AddToggle", "AddSlider", "AddInput", "AddDropdown", "AddSubTab"}) do
+			for _, name in ipairs({"AddSection", "AddButton", "AddParagraph", "AddToggle", "AddSlider", "AddInput", "AddDropdown", "AddKeybind", "AddSubTab"}) do
 				SubTab[name] = function(_, ...)
 					return withContext(subContext, Tab[name], Tab, ...)
 				end
