@@ -2247,7 +2247,7 @@ function Library:CreateWindow(config)
 			}
 			local _, titleObj, descObj = newText(body, info, UDim2.new(1, 0, 0, 0))
 			titleObj.Visible = tostring(info.Title) ~= ""
-			descObj.TextSize = 13
+			titleObj.TextSize = 13
 
 			function Paragraph:SetContent(value)
 				self:SetDesc(value)
@@ -2535,39 +2535,26 @@ function Library:CreateWindow(config)
 			local Input = {}
 			local numeric = data.Numeric == true
 			local finished = data.Finished == true
-			local formatter = typeof(data.Format) == "function" and data.Format or nil
-			local focused = false
+			local formatter = (numeric and typeof(data.Format) == "function") and data.Format or nil
+			local maxLength = tonumber(data.MaxLength)
+			local displaying = false
 			local programmatic = false
 
-			local function clean(raw)
+			local function accept(raw, fallback)
 				raw = tostring(raw == nil and "" or raw)
-				if not numeric then
-					return raw
+				if maxLength and #raw > maxLength then
+					raw = string.sub(raw, 1, maxLength)
 				end
-				local out = (string.gsub(raw, "[^%d%.%-]", ""))
-				local negative = string.sub(out, 1, 1) == "-"
-				out = (string.gsub(out, "%-", ""))
-				local dot = string.find(out, ".", 1, true)
-				if dot then
-					out = string.sub(out, 1, dot) .. (string.gsub(string.sub(out, dot + 1), "%.", ""))
-				end
-				return (negative and "-" or "") .. out
-			end
-
-			local function typed(raw)
-				if numeric then
-					local number = tonumber(raw)
-					if number ~= nil then
-						return number
-					end
+				if numeric and #raw > 0 and tonumber(raw) == nil then
+					return fallback
 				end
 				return raw
 			end
 
-			local defaultValue = clean(data.Default)
+			local defaultValue = accept(data.Default, "")
 			local value = defaultValue
 			if rec.Saved ~= nil then
-				value = clean(rec.Saved)
+				value = accept(rec.Saved, defaultValue)
 			end
 
 			local card = newCard()
@@ -2603,43 +2590,47 @@ function Library:CreateWindow(config)
 			})
 			bind(input, {TextColor3 = "Text", PlaceholderColor3 = "SubText"})
 
-			local function display()
-				if formatter and value ~= "" then
-					local ok, result = pcall(formatter, typed(value))
-					if ok and (type(result) == "string" or type(result) == "number") then
-						return tostring(result)
-					end
-				end
-				return value
-			end
-
 			local function setText(content)
 				programmatic = true
 				input.Text = content
 				programmatic = false
 			end
 
-			local function refresh()
-				setText(focused and value or display())
-			end
-
-			refresh()
-
-			local function apply(newValue, silent)
-				newValue = clean(newValue)
-				if newValue == value then
-					return
-				end
-				value = newValue
-				commit(rec, typed(value), silent)
-				if not silent then
-					fire(data.Callback, typed(value))
+			local function applyFormat()
+				if formatter and value ~= "" then
+					local number = tonumber(value)
+					if not number then
+						return
+					end
+					local ok, result = pcall(formatter, number)
+					if ok and type(result) == "string" and result ~= "" then
+						displaying = true
+						setText(result)
+					end
 				end
 			end
+
+			local function restoreRaw()
+				if displaying then
+					displaying = false
+					setText(value)
+				end
+			end
+
+			setText(value)
 
 			function Input:Set(v, silent)
-				apply(v, silent)
-				refresh()
+				local text = accept(v, value)
+				displaying = false
+				value = text
+				setText(text)
+				commit(rec, value, silent)
+				if not silent then
+					fire(data.Callback, value)
+				end
+				if not input:IsFocused() then
+					task.defer(applyFormat)
+				end
 			end
 
 			function Input:SetValue(v, silent)
@@ -2647,44 +2638,52 @@ function Library:CreateWindow(config)
 			end
 
 			connect(input.Focused, function()
-				focused = true
-				setText(value)
+				restoreRaw()
 				tween(boxStroke, 0.15, {Color = Window.Theme.Accent})
 			end)
 
 			connect(input:GetPropertyChangedSignal("Text"), function()
-				if programmatic then
+				if programmatic or displaying or finished then
 					return
 				end
-				local filtered = clean(input.Text)
-				if filtered ~= input.Text then
-					setText(filtered)
+				local raw = input.Text
+				local text = accept(raw, value)
+				if text ~= raw then
+					setText(text)
 				end
-				if not finished then
-					apply(filtered)
+				if text ~= value then
+					value = text
+					commit(rec, value)
+					fire(data.Callback, value)
 				end
 			end)
 
 			connect(input.FocusLost, function(enterPressed)
-				focused = false
 				tween(boxStroke, 0.15, {Color = Window.Theme.Stroke})
-				if finished and enterPressed then
-					apply(input.Text)
+				if finished then
+					value = accept(input.Text, value)
+					displaying = false
+					setText(value)
+					commit(rec, value)
+					if enterPressed then
+						fire(data.Callback, value)
+					end
 				end
-				refresh()
+				applyFormat()
 			end)
 
-			commit(rec, typed(value), true)
+			commit(rec, value, true)
 			rec.Default = defaultValue
 			rec.Get = function()
-				return typed(value)
+				return value
 			end
 			rec.Set = function(v, silent)
 				Input:Set(v, silent)
 			end
 
 			if value ~= "" then
-				task.defer(fire, data.Callback, typed(value))
+				task.defer(fire, data.Callback, value)
+				task.defer(applyFormat)
 			end
 
 			return finish(Input, card, titleObj, descObj, rec)
@@ -2770,6 +2769,7 @@ function Library:CreateWindow(config)
 			local valueLabel = text({
 				Position = UDim2.fromOffset(10, 0),
 				Size = UDim2.new(1, -34, 1, 0),
+				TextSize = 14,
 				TextTruncate = Enum.TextTruncate.AtEnd,
 				Parent = box,
 			})
@@ -2954,7 +2954,7 @@ function Library:CreateWindow(config)
 				local th = Window.Theme
 				local on = isSelected(name)
 				local duration = animate and 0.12 or 0
-				tween(o.Label, duration, {TextColor3 = on and th.Text or th.SubText})
+				tween(o.Label, duration, {TextColor3 = th.Text})
 				tween(o.Indicator, duration, {Size = UDim2.fromOffset(3, on and 14 or 0)})
 				tween(o.Button, duration, {
 					BackgroundColor3 = on and th.Accent or th.CardHover,
@@ -3131,6 +3131,7 @@ function Library:CreateWindow(config)
 					local label = text({
 						Position = UDim2.fromOffset(12, 0),
 						Size = UDim2.new(1, -20, 1, 0),
+						TextSize = 14,
 						Text = name,
 						TextTruncate = Enum.TextTruncate.AtEnd,
 						ZIndex = 64,
