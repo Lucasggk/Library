@@ -1,4 +1,3 @@
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -853,6 +852,17 @@ function Library:CreateWindow(config)
 	protectGui(gui)
 	gui.Parent = ParentGui
 	Window.Gui = gui
+
+	local bounds = create("Frame", {
+		Name = "Bounds",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Active = false,
+		Position = UDim2.fromScale(0, 0),
+		Size = UDim2.fromScale(1, 1),
+		Parent = gui,
+	})
+	Window.Bounds = bounds
 
 	local function connect(signal, fn)
 		local connection = signal:Connect(fn)
@@ -1754,7 +1764,7 @@ function Library:CreateWindow(config)
 			Position = cfg.Position or (Mobile and UDim2.new(0.45, 0, 0.025, 0) or UDim2.new(0, 300, 0, 20)),
 			Visible = cfg.Visible ~= false,
 			ZIndex = 20,
-			Parent = gui,
+			Parent = bounds,
 		})
 
 		local button = create("TextButton", {
@@ -1787,6 +1797,45 @@ function Library:CreateWindow(config)
 			bind(buttonStroke, {Color = "Stroke"})
 		end
 
+		local function limits()
+			local boundsPos = bounds.AbsolutePosition
+			local boundsSize = bounds.AbsoluteSize
+			local size = holder.AbsoluteSize
+			local top = 0
+			local okTopbar, topbar = pcall(function()
+				return GuiService.TopbarInset
+			end)
+			if okTopbar and typeof(topbar) == "Rect" then
+				top = topbar.Max.Y
+			end
+			if top <= 0 then
+				top = GuiService:GetGuiInset().Y
+			end
+			local minX = 0
+			local minY = math.max(0, top - boundsPos.Y)
+			local maxX = math.max(minX, boundsSize.X - size.X)
+			local maxY = math.max(minY, boundsSize.Y - size.Y)
+			return minX, minY, maxX, maxY
+		end
+
+		local function place(x, y)
+			local minX, minY, maxX, maxY = limits()
+			holder.Position = UDim2.fromOffset(math.clamp(x, minX, maxX), math.clamp(y, minY, maxY))
+		end
+
+		local function keepInside()
+			if not holder.Parent then
+				return
+			end
+			local minX, minY, maxX, maxY = limits()
+			local rel = holder.AbsolutePosition - bounds.AbsolutePosition
+			local x = math.clamp(rel.X, minX, maxX)
+			local y = math.clamp(rel.Y, minY, maxY)
+			if math.abs(x - rel.X) > 0.5 or math.abs(y - rel.Y) > 0.5 then
+				holder.Position = UDim2.fromOffset(x, y)
+			end
+		end
+
 		local dragging = false
 		local moved = false
 		local startMouse
@@ -1798,7 +1847,7 @@ function Library:CreateWindow(config)
 					dragging = true
 					moved = false
 					startMouse = input.Position
-					startRel = holder.AbsolutePosition - gui.AbsolutePosition
+					startRel = holder.AbsolutePosition - bounds.AbsolutePosition
 				end
 			end),
 			UserInputService.InputChanged:Connect(function(input)
@@ -1810,7 +1859,7 @@ function Library:CreateWindow(config)
 					moved = true
 				end
 				if moved then
-					holder.Position = UDim2.fromOffset(startRel.X + delta.X, startRel.Y + delta.Y)
+					place(startRel.X + delta.X, startRel.Y + delta.Y)
 				end
 			end),
 			UserInputService.InputEnded:Connect(function(input)
@@ -1821,12 +1870,24 @@ function Library:CreateWindow(config)
 					end
 				end
 			end),
+			bounds:GetPropertyChangedSignal("AbsoluteSize"):Connect(keepInside),
+			holder:GetPropertyChangedSignal("AbsoluteSize"):Connect(keepInside),
 		}
+
+		local okSignal, topbarSignal = pcall(function()
+			return GuiService:GetPropertyChangedSignal("TopbarInset")
+		end)
+		if okSignal and topbarSignal then
+			table.insert(connections, topbarSignal:Connect(keepInside))
+		end
+
+		task.defer(keepInside)
 
 		Minimizer.Frame = holder
 
 		function Minimizer:SetVisible(state)
 			holder.Visible = state == true
+			keepInside()
 		end
 
 		function Minimizer:Destroy()
