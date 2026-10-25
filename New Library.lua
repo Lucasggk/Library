@@ -3439,7 +3439,6 @@ function Library:CreateWindow(config)
 			end
 
 			function Keybind:DoClick()
-				fire(data.Callback, Keybind.Toggled)
 				fire(Keybind.Clicked, Keybind.Toggled)
 			end
 
@@ -3475,6 +3474,7 @@ function Library:CreateWindow(config)
 							picking = false
 							Keybind:SetValue(name)
 							local changed = endInput.UserInputType == Enum.UserInputType.Keyboard and endInput.KeyCode or endInput.UserInputType
+							fire(data.Callback, changed)
 							fire(data.ChangedCallback, changed)
 							fire(Keybind.Changed, changed)
 						end)
