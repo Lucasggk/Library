@@ -8,6 +8,37 @@ local ParentGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
 local Library = {Flags = {}, Windows = {}, LastWindow = nil, MinimizeKey = Enum.KeyCode.LeftControl}
 
+local MinimizeNotif = false
+local Mobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+function Library:SafeCallback(Function, ...)
+	if not Function then
+		return
+	end
+
+	local Success, Event = pcall(Function, ...)
+	if not Success then
+		Event = tostring(Event)
+		local _, i = Event:find(":%d+: ")
+
+		if not i then
+			return Library:Notify({
+				Title = "Interface",
+				Content = "Callback error",
+				SubContent = Event,
+				Duration = 5,
+			})
+		end
+
+		return Library:Notify({
+			Title = "Interface",
+			Content = "Callback error",
+			SubContent = Event:sub(i + 1),
+			Duration = 5,
+		})
+	end
+end
+
 Library.ThemeOrder = {
 	"Dark",
 	"Darker",
@@ -448,8 +479,39 @@ end
 
 local function fire(callback, ...)
 	if typeof(callback) == "function" then
-		task.spawn(callback, ...)
+		task.spawn(Library.SafeCallback, Library, callback, ...)
 	end
+end
+
+local DigitKeys = {
+	["0"] = "Zero", ["1"] = "One", ["2"] = "Two", ["3"] = "Three", ["4"] = "Four",
+	["5"] = "Five", ["6"] = "Six", ["7"] = "Seven", ["8"] = "Eight", ["9"] = "Nine",
+	[" "] = "Space", ["-"] = "Minus", ["="] = "Equals", ["["] = "LeftBracket",
+	["]"] = "RightBracket", [";"] = "Semicolon", ["'"] = "Quote", [","] = "Comma",
+	["."] = "Period", ["/"] = "Slash", ["\\"] = "BackSlash", ["`"] = "Backquote",
+}
+
+local function resolveKeyCode(key)
+	if typeof(key) == "EnumItem" then
+		if key.EnumType == Enum.KeyCode then
+			return key
+		end
+		return nil
+	end
+	if type(key) ~= "string" or key == "" then
+		return nil
+	end
+	local mapped = DigitKeys[key]
+	if mapped then
+		return Enum.KeyCode[mapped]
+	end
+	local lowered = string.lower(key)
+	for _, item in ipairs(Enum.KeyCode:GetEnumItems()) do
+		if string.lower(item.Name) == lowered then
+			return item
+		end
+	end
+	return nil
 end
 
 local function isPress(input)
@@ -568,6 +630,7 @@ function Library:CreateWindow(config)
 		CurrentTab = nil,
 		Minimizer = nil,
 		Maximized = false,
+		Minimized = false,
 	}
 
 	local title = tostring(config.Title or "Window")
@@ -578,13 +641,8 @@ function Library:CreateWindow(config)
 	if minimizeKey == nil then
 		minimizeKey = config.ToggleKey
 	end
-	if type(minimizeKey) == "string" then
-		local okKey, item = pcall(function()
-			return Enum.KeyCode[minimizeKey]
-		end)
-		minimizeKey = okKey and item or nil
-	end
-	if typeof(minimizeKey) == "EnumItem" then
+	minimizeKey = resolveKeyCode(minimizeKey)
+	if minimizeKey then
 		Library.MinimizeKey = minimizeKey
 	end
 
@@ -1143,18 +1201,61 @@ function Library:CreateWindow(config)
 		end
 		state = state == true
 		self.Visible = state
+		self.Minimized = not state
 		if not state then
 			self:ClosePopups()
 		end
 		main.Visible = state
 	end
 
-	function Window:Toggle()
-		self:SetVisible(not self.Visible)
+	function Window:SetMinimizeKey(key)
+		local item = resolveKeyCode(key)
+		if not item then
+			warn("Window:SetMinimizeKey: invalid key " .. tostring(key))
+			return false
+		end
+		Library.MinimizeKey = item
+		Library.MinimizeKeybind = nil
+		return true
+	end
+
+	function Window:GetMinimizeKey()
+		local custom = Library.MinimizeKeybind
+		if type(custom) == "table" and custom.Type == "Keybind" then
+			local item = resolveKeyCode(custom.Value)
+			if item then
+				return item
+			end
+		end
+		return Library.MinimizeKey
 	end
 
 	function Window:Minimize()
-		self:Toggle()
+		if self.Destroyed then
+			return
+		end
+		self:SetVisible(not self.Visible)
+
+		if self.Minimized and not MinimizeNotif then
+			MinimizeNotif = true
+			if not Mobile then
+				self:Notification({
+					Title = "Interface",
+					Content = "Press " .. self:GetMinimizeKey().Name .. " to toggle the interface.",
+					Duration = 6,
+				})
+			else
+				self:Notification({
+					Title = "Interface",
+					Content = "Tap the button to toggle the interface.",
+					Duration = 6,
+				})
+			end
+		end
+	end
+
+	function Window:Toggle()
+		self:Minimize()
 	end
 
 	local restoreSize = main.Size
@@ -1595,7 +1696,9 @@ function Library:CreateWindow(config)
 			Window:CreateMinimizer({})
 		end
 		Window.Minimizer:SetVisible(true)
-		Window:SetVisible(false)
+		if Window.Visible then
+			Window:Minimize()
+		end
 	end)
 
 	connect(maxButton.MouseButton1Click, function()
@@ -1624,13 +1727,8 @@ function Library:CreateWindow(config)
 		if UserInputService:GetFocusedTextBox() then
 			return
 		end
-		local custom = Library.MinimizeKeybind
-		if type(custom) == "table" and custom.Type == "Keybind" then
-			if input.KeyCode.Name == custom.Value then
-				Window:Toggle()
-			end
-		elseif input.KeyCode == Library.MinimizeKey then
-			Window:Toggle()
+		if input.KeyCode ~= Enum.KeyCode.Unknown and input.KeyCode == Window:GetMinimizeKey() then
+			Window:Minimize()
 		end
 	end)
 
