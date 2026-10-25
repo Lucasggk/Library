@@ -1880,6 +1880,7 @@ function Library:CreateWindow(config)
 			local boundsSize = bounds.AbsoluteSize
 			local size = holder.AbsoluteSize
 			local top = 0
+			local legacy = GuiService:GetGuiInset().Y
 			local okTopbar, topbar = pcall(function()
 				return GuiService.TopbarInset
 			end)
@@ -1887,10 +1888,14 @@ function Library:CreateWindow(config)
 				top = topbar.Max.Y
 			end
 			if top <= 0 then
-				top = GuiService:GetGuiInset().Y
+				top = legacy
+			end
+			local cap = math.max(legacy, boundsSize.Y * 0.1)
+			if top > cap then
+				top = cap
 			end
 			local minX = 0
-			local minY = math.max(0, top - boundsPos.Y)
+			local minY = math.max(0, top)
 			local maxX = math.max(minX, boundsSize.X - size.X)
 			local maxY = math.max(minY, boundsSize.Y - size.Y)
 			return minX, minY, maxX, maxY
