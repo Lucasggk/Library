@@ -3355,28 +3355,27 @@ function Library:CreateWindow(config)
 			local card = newCard()
 			local _, row, overlay = newRow(card)
 			overlay:Destroy()
-			local _, titleObj, descObj = newText(row, data, UDim2.new(1, -120, 0, 0))
+			local _, titleObj, descObj = newText(row, data, UDim2.new(1, -172, 0, 0))
 
 			local display = create("TextButton", {
 				AutoButtonColor = false,
 				Text = "",
-				Size = UDim2.fromOffset(0, 30),
-				AutomaticSize = Enum.AutomaticSize.X,
+				Size = UDim2.fromOffset(160, 30),
 				BorderSizePixel = 0,
 				LayoutOrder = 2,
 				Parent = row,
 			})
 			corner(display, 6)
 			local displayStroke = stroke(display, 1, 0.2)
-			pad(display, 0, 0, 10, 10)
 			bind(display, {BackgroundColor3 = "CardHover"})
 			glass(display, 0, 0.3)
 			bind(displayStroke, {Color = "Stroke"})
 
 			local keyLabel = text({
-				Size = UDim2.new(0, 0, 1, 0),
-				AutomaticSize = Enum.AutomaticSize.X,
+				Position = UDim2.fromOffset(10, 0),
+				Size = UDim2.new(1, -20, 1, 0),
 				TextXAlignment = Enum.TextXAlignment.Center,
+				TextTruncate = Enum.TextTruncate.AtEnd,
 				Text = Keybind.Value,
 				Parent = display,
 			})
