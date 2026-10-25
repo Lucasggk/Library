@@ -1,4 +1,3 @@
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -1802,12 +1801,15 @@ function Library:CreateWindow(config)
 			local boundsPos = bounds.AbsolutePosition
 			local boundsSize = bounds.AbsoluteSize
 			local size = holder.AbsoluteSize
-			local top = GuiService:GetGuiInset().Y
+			local top = 0
 			local okTopbar, topbar = pcall(function()
 				return GuiService.TopbarInset
 			end)
 			if okTopbar and typeof(topbar) == "Rect" then
-				top = math.max(top, topbar.Max.Y)
+				top = topbar.Max.Y
+			end
+			if top <= 0 then
+				top = GuiService:GetGuiInset().Y
 			end
 			local minX = 0
 			local minY = math.max(0, top - boundsPos.Y)
