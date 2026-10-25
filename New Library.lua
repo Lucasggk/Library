@@ -4,6 +4,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local GuiService = game:GetService("GuiService")
+local ContextActionService = game:GetService("ContextActionService")
 
 local ParentGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
@@ -549,15 +550,50 @@ local function protectGui(gui)
 	return false
 end
 
+local sinkCounter = 0
+
+local function newSink()
+	sinkCounter = sinkCounter + 1
+	local name = "LibraryDragSink" .. sinkCounter
+	local bound = false
+	local sink = {}
+	function sink.start()
+		if bound then
+			return
+		end
+		bound = pcall(function()
+			ContextActionService:BindActionAtPriority(name, function()
+				return Enum.ContextActionResult.Sink
+			end, false, Enum.ContextActionPriority.High.Value + 1000, Enum.UserInputType.Touch, Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseMovement)
+		end)
+	end
+	function sink.stop()
+		if not bound then
+			return
+		end
+		bound = false
+		pcall(function()
+			ContextActionService:UnbindAction(name)
+		end)
+	end
+	return sink
+end
+
 local function makeDraggable(handle, target, connect, onClick, threshold, canDrag)
 	local dragging = false
 	local moved = false
 	local startMouse
 	local startPos
+	local sink = newSink()
 	threshold = threshold or 0
+
+	pcall(function()
+		handle.Active = true
+	end)
 
 	connect(handle.InputBegan, function(input)
 		if isPress(input) and (not canDrag or canDrag()) then
+			sink.start()
 			dragging = true
 			moved = false
 			startMouse = input.Position
@@ -585,6 +621,7 @@ local function makeDraggable(handle, target, connect, onClick, threshold, canDra
 	connect(UserInputService.InputEnded, function(input)
 		if dragging and isPress(input) then
 			dragging = false
+			sink.stop()
 			if not moved and onClick then
 				onClick()
 			end
@@ -668,6 +705,8 @@ function Library:CreateWindow(config)
 	Window.FlagList = {}
 	Window.SaveData = {}
 	Window.SaveToken = 0
+	Window.InitQueue = {}
+	Window.InitToken = 0
 	Window.SuspendSave = false
 	Window.SavePending = false
 	Window.HasSave = false
@@ -776,7 +815,7 @@ function Library:CreateWindow(config)
 		for _, rec in ipairs(saveRecords()) do
 			local value = flags[rec.Key]
 			if value ~= nil then
-				pcall(rec.Set, value, false)
+				pcall(rec.Set, value, false, true)
 			end
 		end
 		Window.SuspendSave = false
@@ -828,6 +867,45 @@ function Library:CreateWindow(config)
 				self:_WriteSave()
 			end
 		end)
+	end
+
+	function Window:_FlushInit()
+		local queue = self.InitQueue
+		self.InitQueue = {}
+		for _, item in ipairs(queue) do
+			if self.Destroyed then
+				return
+			end
+			local okGet, value = pcall(item.Rec.Get)
+			if okGet then
+				fire(item.Callback, value)
+			end
+		end
+	end
+
+	function Window:_QueueInit(rec, callback)
+		if typeof(callback) ~= "function" then
+			return
+		end
+		table.insert(self.InitQueue, {Rec = rec, Callback = callback})
+		self.InitToken += 1
+		local token = self.InitToken
+		task.delay(0.5, function()
+			if token == self.InitToken and not self.Destroyed then
+				self:_FlushInit()
+			end
+		end)
+	end
+
+	function Window:FireAllCallbacks()
+		for _, rec in ipairs(self.FlagList) do
+			if rec.Get and rec.Callback then
+				local okGet, value = pcall(rec.Get)
+				if okGet then
+					fire(rec.Callback, value)
+				end
+			end
+		end
 	end
 
 	Window.SaveManager = SaveManager
@@ -1840,10 +1918,17 @@ function Library:CreateWindow(config)
 		local moved = false
 		local startMouse
 		local startRel
+		local sink = newSink()
+
+		pcall(function()
+			holder.Active = true
+			button.Active = true
+		end)
 
 		local connections = {
 			button.InputBegan:Connect(function(input)
 				if isPress(input) then
+					sink.start()
 					dragging = true
 					moved = false
 					startMouse = input.Position
@@ -1865,6 +1950,7 @@ function Library:CreateWindow(config)
 			UserInputService.InputEnded:Connect(function(input)
 				if dragging and isPress(input) then
 					dragging = false
+					sink.stop()
 					if not moved then
 						Window:Toggle()
 					end
@@ -1891,6 +1977,7 @@ function Library:CreateWindow(config)
 		end
 
 		function Minimizer:Destroy()
+			sink.stop()
 			for _, connection in ipairs(connections) do
 				connection:Disconnect()
 			end
@@ -2358,6 +2445,17 @@ function Library:CreateWindow(config)
 			connect(overlay.MouseLeave, function()
 				tween(card, 0.12, {BackgroundColor3 = Window.Theme.Card})
 			end)
+			if Mobile then
+				connect(overlay.InputEnded, function(input)
+					if input.UserInputType == Enum.UserInputType.Touch then
+						task.delay(0.12, function()
+							if card.Parent then
+								tween(card, 0.15, {BackgroundColor3 = Window.Theme.Card})
+							end
+						end)
+					end
+				end)
+			end
 		end
 
 		function Tab:AddSection(data)
@@ -2438,6 +2536,14 @@ function Library:CreateWindow(config)
 			chevron(arrowHolder, -90, bind)
 			hoverCard(card, overlay)
 
+			local hovering = false
+			connect(overlay.MouseEnter, function()
+				hovering = true
+			end)
+			connect(overlay.MouseLeave, function()
+				hovering = false
+			end)
+
 			connect(overlay.MouseButton1Click, function()
 				if Window.HoverLocks > 0 then
 					return
@@ -2445,7 +2551,8 @@ function Library:CreateWindow(config)
 				tween(card, 0.08, {BackgroundColor3 = Window.Theme.Stroke})
 				task.delay(0.1, function()
 					if card.Parent then
-						tween(card, 0.15, {BackgroundColor3 = Window.Theme.CardHover})
+						local rest = (hovering and not Mobile) and Window.Theme.CardHover or Window.Theme.Card
+						tween(card, 0.15, {BackgroundColor3 = rest})
 					end
 				end)
 				fire(data.Callback)
@@ -2541,9 +2648,9 @@ function Library:CreateWindow(config)
 
 			commit(rec, value, true)
 
-			function Toggle:Set(newValue, silent)
+			function Toggle:Set(newValue, silent, force)
 				newValue = newValue == true
-				if newValue == value then
+				if newValue == value and not force then
 					return
 				end
 				value = newValue
@@ -2554,8 +2661,8 @@ function Library:CreateWindow(config)
 				end
 			end
 
-			function Toggle:SetValue(v, silent)
-				Toggle:Set(v, silent)
+			function Toggle:SetValue(v, silent, force)
+				Toggle:Set(v, silent, force)
 			end
 
 			connect(overlay.MouseButton1Click, function()
@@ -2566,11 +2673,12 @@ function Library:CreateWindow(config)
 			rec.Get = function()
 				return value
 			end
-			rec.Set = function(v, silent)
-				Toggle:Set(v, silent)
+			rec.Set = function(v, silent, force)
+				Toggle:Set(v, silent, force)
 			end
 
-			task.defer(fire, data.Callback, value)
+			rec.Callback = data.Callback
+			Window:_QueueInit(rec, data.Callback)
 
 			return finish(Toggle, card, titleObj, descObj, rec)
 		end
@@ -2694,13 +2802,13 @@ function Library:CreateWindow(config)
 
 			commit(rec, value, true)
 
-			function Slider:Set(newValue, silent)
+			function Slider:Set(newValue, silent, force)
 				newValue = tonumber(newValue)
 				if not newValue then
 					return
 				end
 				newValue = snap(newValue)
-				if newValue == value then
+				if newValue == value and not force then
 					return
 				end
 				value = newValue
@@ -2711,8 +2819,8 @@ function Library:CreateWindow(config)
 				end
 			end
 
-			function Slider:SetValue(v, silent)
-				Slider:Set(v, silent)
+			function Slider:SetValue(v, silent, force)
+				Slider:Set(v, silent, force)
 			end
 
 			local function updateFromX(x)
@@ -2747,11 +2855,12 @@ function Library:CreateWindow(config)
 			rec.Get = function()
 				return value
 			end
-			rec.Set = function(v, silent)
-				Slider:Set(v, silent)
+			rec.Set = function(v, silent, force)
+				Slider:Set(v, silent, force)
 			end
 
-			task.defer(fire, data.Callback, value)
+			rec.Callback = data.Callback
+			Window:_QueueInit(rec, data.Callback)
 
 			return finish(Slider, card, titleObj, descObj, rec)
 		end
@@ -2908,8 +3017,9 @@ function Library:CreateWindow(config)
 				Input:Set(v, silent)
 			end
 
+			rec.Callback = data.Callback
+			Window:_QueueInit(rec, data.Callback)
 			if value ~= "" then
-				task.defer(fire, data.Callback, value)
 				task.defer(applyFormat)
 			end
 
@@ -3422,7 +3532,6 @@ function Library:CreateWindow(config)
 			end
 			if initial ~= nil then
 				Dropdown:Set(initial, true)
-				task.defer(fire, data.Callback, Dropdown:Get())
 			else
 				refreshText()
 			end
@@ -3438,6 +3547,9 @@ function Library:CreateWindow(config)
 			rec.Set = function(v, silent)
 				Dropdown:Set(v, silent)
 			end
+
+			rec.Callback = data.Callback
+			Window:_QueueInit(rec, data.Callback)
 
 			return finish(Dropdown, card, titleObj, descObj)
 		end
