@@ -307,19 +307,53 @@ Library.Icons = {
 	Close = "rbxassetid://9886659671",
 }
 
+local function colorLuma(c)
+	return 0.299 * c.R + 0.587 * c.G + 0.114 * c.B
+end
+
+local function deriveTheme(value)
+	local theme = {}
+	for k, v in pairs(Library.Themes.Dark) do
+		theme[k] = v
+	end
+	local black = Color3.new(0, 0, 0)
+	local white = Color3.new(1, 1, 1)
+	if typeof(value.Background) == "Color3" then
+		local bg = value.Background
+		local light = colorLuma(bg) > 0.55
+		local text = light and Color3.fromRGB(24, 30, 40) or Color3.fromRGB(240, 244, 248)
+		theme.Background = bg
+		theme.Sidebar = light and bg:Lerp(black, 0.05) or bg:Lerp(black, 0.25)
+		theme.Card = light and bg:Lerp(white, 0.6) or bg:Lerp(white, 0.06)
+		theme.CardHover = light and theme.Card:Lerp(black, 0.04) or bg:Lerp(white, 0.11)
+		theme.Stroke = light and bg:Lerp(black, 0.12) or bg:Lerp(white, 0.18)
+		theme.Text = text
+		theme.SubText = text:Lerp(bg, 0.45)
+		theme.Track = light and bg:Lerp(black, 0.2) or bg:Lerp(white, 0.24)
+	end
+	for k, v in pairs(value) do
+		if typeof(v) == "Color3" then
+			theme[k] = v
+		end
+	end
+	if typeof(value.AccentText) ~= "Color3" then
+		theme.AccentText = colorLuma(theme.Accent) > 0.55 and Color3.fromRGB(20, 20, 20) or Color3.fromRGB(255, 255, 255)
+	end
+	if typeof(value.Background) == "Color3" then
+		if typeof(value.CardHover) ~= "Color3" and typeof(value.Card) == "Color3" then
+			local light = colorLuma(theme.Background) > 0.55
+			theme.CardHover = light and theme.Card:Lerp(black, 0.04) or theme.Card:Lerp(white, 0.06)
+		end
+	end
+	return theme
+end
+
 local function resolveTheme(value)
 	if type(value) == "string" and Library.Themes[value] then
 		return Library.Themes[value], value
 	end
 	if type(value) == "table" then
-		local merged = {}
-		for k, v in pairs(Library.Themes.Dark) do
-			merged[k] = v
-		end
-		for k, v in pairs(value) do
-			merged[k] = v
-		end
-		return merged, tostring(value.Name or "Custom")
+		return deriveTheme(value), tostring(value.Name or "Custom")
 	end
 	return Library.Themes.Dark, "Dark"
 end
@@ -815,14 +849,40 @@ function Library:CreateWindow(config)
 		end
 		local values = extractFlags(decoded)
 		Window.SuspendSave = true
-		for _, rec in ipairs(saveRecords()) do
-			local value = values[rec.Key]
-			if value ~= nil then
+		local waiting = {}
+		for key, value in pairs(values) do
+			local rec = Window.FlagKeys[key]
+			if rec and rec.Save and rec.Set then
 				pcall(rec.Set, value, false, true)
+			else
+				waiting[key] = value
 			end
 		end
 		Window.SuspendSave = false
-		Window.SaveData = values
+		Window.SaveData = {}
+		for key, value in pairs(values) do
+			if waiting[key] == nil then
+				Window.SaveData[key] = value
+			end
+		end
+		if next(waiting) ~= nil then
+			task.spawn(function()
+				local deadline = os.clock() + 5
+				while next(waiting) ~= nil and os.clock() < deadline and not Window.Destroyed do
+					for key, value in pairs(waiting) do
+						local rec = Window.FlagKeys[key]
+						if rec and rec.Save and rec.Set then
+							waiting[key] = nil
+							Window.SuspendSave = true
+							pcall(rec.Set, value, false, true)
+							Window.SuspendSave = false
+							Window.SaveData[key] = value
+						end
+					end
+					task.wait(0.1)
+				end
+			end)
+		end
 		Window:_QueueSave()
 		return true
 	end
@@ -893,13 +953,12 @@ function Library:CreateWindow(config)
 		table.insert(self.InitQueue, {Rec = rec, Callback = callback})
 		self.InitToken += 1
 		local token = self.InitToken
-		task.delay(0.5, function()
+		task.defer(function()
 			if token == self.InitToken and not self.Destroyed then
 				self:_FlushInit()
 			end
 		end)
 	end
-
 	function Window:FireAllCallbacks()
 		for _, rec in ipairs(self.FlagList) do
 			if rec.Get and rec.Callback then
@@ -952,7 +1011,11 @@ function Library:CreateWindow(config)
 	end
 
 	local function register(inst, fn)
-		table.insert(Window.Binds, {Instance = inst, Fn = fn})
+		local entry = {Instance = inst, Fn = fn, Dead = false}
+		table.insert(Window.Binds, entry)
+		inst.Destroying:Connect(function()
+			entry.Dead = true
+		end)
 		fn(Window.Theme)
 	end
 
@@ -1424,17 +1487,31 @@ function Library:CreateWindow(config)
 	end
 
 	function Window:SetTheme(value)
+		if self.Destroyed then
+			return
+		end
 		local theme, name = resolveTheme(value)
 		self.Theme = theme
 		self.ThemeName = name
 		local alive = {}
 		for _, entry in ipairs(self.Binds) do
-			if entry.Instance and entry.Instance:IsDescendantOf(gui) then
-				entry.Fn(theme)
+			if not entry.Dead then
+				local ok, err = pcall(entry.Fn, theme)
+				if not ok then
+					warn("SetTheme: " .. tostring(err))
+				end
 				table.insert(alive, entry)
 			end
 		end
 		self.Binds = alive
+		for _, tab in ipairs(self.Tabs) do
+			pcall(tab.Paint, false)
+			for _, sub in ipairs(tab.Subs or {}) do
+				if type(sub) == "table" and sub.Paint then
+					pcall(sub.Paint, false)
+				end
+			end
+		end
 	end
 
 	function Window:Dialog(cfg)
@@ -1879,7 +1956,6 @@ function Library:CreateWindow(config)
 		end
 
 		local function limits()
-			local boundsPos = bounds.AbsolutePosition
 			local boundsSize = bounds.AbsoluteSize
 			local size = holder.AbsoluteSize
 			local top = 0
@@ -2521,7 +2597,7 @@ function Library:CreateWindow(config)
 			local contentOrder = nextOrder()
 			local sectionContext
 			local Section = {}
-			for _, name in ipairs({"AddButton", "AddParagraph", "AddToggle", "AddSlider", "AddInput", "AddDropdown", "AddKeybind", "AddColorpicker"}) do
+			for _, name in ipairs({"AddButton", "AddParagraph", "AddToggle", "AddSlider", "AddInput", "AddDropdown", "AddKeybind", "AddColorpicker", "AddComponent"}) do
 				Section[name] = function(_, ...)
 					if not sectionContext then
 						local container = create("Frame", {
@@ -2542,6 +2618,67 @@ function Library:CreateWindow(config)
 				end
 			end
 			return Section
+		end
+
+		function Tab:AddComponent(cfg)
+			if type(cfg) ~= "table" then
+				cfg = {}
+			end
+			local autoResize = cfg.AutoResize == true
+			local minHeight = tonumber(cfg.Height) or (autoResize and 20 or 60)
+			local frame = newCard()
+			frame.AutomaticSize = Enum.AutomaticSize.None
+			frame.Size = UDim2.new(1, 0, 0, minHeight)
+			frame.Name = tostring(cfg.Name or "Component")
+
+			if autoResize then
+				local pending = false
+				local function measure()
+					pending = false
+					if not frame.Parent then
+						return
+					end
+					local top = frame.AbsolutePosition.Y
+					local bottom = 0
+					for _, d in ipairs(frame:GetDescendants()) do
+						if d:IsA("GuiObject") and d.Visible then
+							local reach = d.AbsolutePosition.Y + d.AbsoluteSize.Y - top
+							if reach > bottom then
+								bottom = reach
+							end
+						end
+					end
+					local wanted = math.max(minHeight, math.ceil(bottom) + 5)
+					if frame.Size.Y.Offset ~= wanted then
+						frame.Size = UDim2.new(1, 0, 0, wanted)
+					end
+				end
+				local function schedule()
+					if not pending then
+						pending = true
+						task.defer(measure)
+					end
+				end
+				local function watch(d)
+					if d:IsA("GuiObject") then
+						d:GetPropertyChangedSignal("AbsoluteSize"):Connect(schedule)
+						d:GetPropertyChangedSignal("AbsolutePosition"):Connect(schedule)
+						d:GetPropertyChangedSignal("Visible"):Connect(schedule)
+					end
+					schedule()
+				end
+				for _, d in ipairs(frame:GetDescendants()) do
+					watch(d)
+				end
+				frame.DescendantAdded:Connect(watch)
+				frame.DescendantRemoving:Connect(function()
+					task.defer(schedule)
+				end)
+				frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(schedule)
+				schedule()
+			end
+
+			return frame
 		end
 
 		function Tab:AddButton(data)
@@ -2572,13 +2709,13 @@ function Library:CreateWindow(config)
 					return
 				end
 				tween(card, 0.08, {BackgroundColor3 = Window.Theme.Stroke})
+				fire(data.Callback)
 				task.delay(0.1, function()
 					if card.Parent then
 						local rest = (hovering and not Mobile) and Window.Theme.CardHover or Window.Theme.Card
 						tween(card, 0.15, {BackgroundColor3 = rest})
 					end
 				end)
-				fire(data.Callback)
 			end)
 
 			return finish(Button, card, titleObj, descObj)
@@ -3767,13 +3904,7 @@ function Library:CreateWindow(config)
 			local rec = newFlag(idx, data)
 			local useAlpha = data.Transparency == true
 			local Colorpicker = {Type = "Colorpicker"}
-			local open = false
-			local popupToken = 0
-			local direction = "Down"
-			local renderConnection
-			local popupWidth = 220
-			local popupHeight = useAlpha and 212 or 192
-			local dragMode
+			local CHECKER = "http://www.roblox.com/asset/?id=14204231522"
 
 			local function toColor(v, fallback)
 				if typeof(v) == "Color3" then
@@ -3798,21 +3929,23 @@ function Library:CreateWindow(config)
 			elseif rec.Saved ~= nil then
 				color = toColor(rec.Saved, defaultColor)
 			end
-			local hue, sat, val = Color3.toHSV(color)
 
 			local card = newCard()
 			local _, row, overlay = newRow(card)
-			local _, titleObj, descObj = newText(row, data, UDim2.new(1, -52, 0, 0))
+			local _, titleObj, descObj = newText(row, data, UDim2.new(1, -40, 0, 0))
 
-			local swatchHolder = create("Frame", {
-				Size = UDim2.fromOffset(40, 22),
-				BorderSizePixel = 0,
+			local swatchHolder = create("ImageLabel", {
+				Size = UDim2.fromOffset(28, 28),
+				BackgroundTransparency = 1,
+				Image = CHECKER,
+				ImageTransparency = 0.45,
+				ScaleType = Enum.ScaleType.Tile,
+				TileSize = UDim2.fromOffset(40, 40),
 				LayoutOrder = 2,
 				Parent = row,
 			})
 			corner(swatchHolder, 6)
 			local swatchStroke = stroke(swatchHolder, 1, 0.2)
-			bind(swatchHolder, {BackgroundColor3 = "Track"})
 			bind(swatchStroke, {Color = "Stroke"})
 			local swatch = create("Frame", {
 				Size = UDim2.fromScale(1, 1),
@@ -3821,205 +3954,28 @@ function Library:CreateWindow(config)
 			})
 			corner(swatch, 6)
 
-			local blocker = create("TextButton", {
-				BackgroundTransparency = 1,
-				AutoButtonColor = false,
-				Active = true,
-				Text = "",
-				Size = UDim2.fromScale(1, 1),
-				ZIndex = 60,
-				Visible = false,
-				Parent = gui,
-			})
-
-			local popup = create("TextButton", {
-				BorderSizePixel = 0,
-				AutoButtonColor = false,
-				Active = true,
-				Text = "",
-				Size = UDim2.fromOffset(popupWidth, 0),
-				ClipsDescendants = true,
-				Visible = false,
-				ZIndex = 61,
-				Parent = gui,
-			})
-			corner(popup, 8)
-			local popupStroke = stroke(popup, 1, 0.2)
-			bind(popup, {BackgroundColor3 = "Card"})
-			glass(popup, 0, 0.06)
-			bind(popupStroke, {Color = "Stroke"})
-
-			local svMap = create("Frame", {
-				Position = UDim2.fromOffset(8, 8),
-				Size = UDim2.fromOffset(204, 120),
-				BorderSizePixel = 0,
-				ZIndex = 62,
-				Parent = popup,
-			})
-			corner(svMap, 6)
-			local whiteLayer = create("Frame", {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundColor3 = Color3.new(1, 1, 1),
-				BorderSizePixel = 0,
-				ZIndex = 63,
-				Parent = svMap,
-			})
-			corner(whiteLayer, 6)
-			create("UIGradient", {
-				Transparency = NumberSequence.new(0, 1),
-				Parent = whiteLayer,
-			})
-			local blackLayer = create("Frame", {
-				Size = UDim2.fromScale(1, 1),
-				BackgroundColor3 = Color3.new(0, 0, 0),
-				BorderSizePixel = 0,
-				ZIndex = 64,
-				Parent = svMap,
-			})
-			corner(blackLayer, 6)
-			create("UIGradient", {
-				Transparency = NumberSequence.new(1, 0),
-				Rotation = 90,
-				Parent = blackLayer,
-			})
-			local svKnob = create("Frame", {
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Size = UDim2.fromOffset(12, 12),
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				ZIndex = 66,
-				Parent = svMap,
-			})
-			corner(svKnob, 6)
-			stroke(svKnob, 2, 0).Color = Color3.new(1, 1, 1)
-
-			local hueBar = create("Frame", {
-				Position = UDim2.fromOffset(8, 136),
-				Size = UDim2.fromOffset(204, 12),
-				BackgroundColor3 = Color3.new(1, 1, 1),
-				BorderSizePixel = 0,
-				ZIndex = 62,
-				Parent = popup,
-			})
-			corner(hueBar, 6)
-			local hueKeys = {}
-			for i = 0, 6 do
-				table.insert(hueKeys, ColorSequenceKeypoint.new(i / 6, Color3.fromHSV(math.min(i / 6, 0.999), 1, 1)))
-			end
-			create("UIGradient", {Color = ColorSequence.new(hueKeys), Parent = hueBar})
-			local hueKnob = create("Frame", {
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				Position = UDim2.fromScale(0, 0.5),
-				Size = UDim2.fromOffset(10, 16),
-				BackgroundColor3 = Color3.new(1, 1, 1),
-				BorderSizePixel = 0,
-				ZIndex = 63,
-				Parent = hueBar,
-			})
-			corner(hueKnob, 4)
-			stroke(hueKnob, 1, 0.3).Color = Color3.new(0, 0, 0)
-
-			local alphaBar, alphaFill, alphaKnob
-			local hexY = 156
-			if useAlpha then
-				alphaBar = create("Frame", {
-					Position = UDim2.fromOffset(8, 156),
-					Size = UDim2.fromOffset(204, 12),
-					BorderSizePixel = 0,
-					ZIndex = 62,
-					Parent = popup,
-				})
-				corner(alphaBar, 6)
-				bind(alphaBar, {BackgroundColor3 = "Track"})
-				alphaFill = create("Frame", {
-					Size = UDim2.fromScale(1, 1),
-					BorderSizePixel = 0,
-					ZIndex = 63,
-					Parent = alphaBar,
-				})
-				corner(alphaFill, 6)
-				create("UIGradient", {
-					Transparency = NumberSequence.new(1, 0),
-					Parent = alphaFill,
-				})
-				alphaKnob = create("Frame", {
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					Position = UDim2.fromScale(1, 0.5),
-					Size = UDim2.fromOffset(10, 16),
-					BackgroundColor3 = Color3.new(1, 1, 1),
-					BorderSizePixel = 0,
-					ZIndex = 64,
-					Parent = alphaBar,
-				})
-				corner(alphaKnob, 4)
-				stroke(alphaKnob, 1, 0.3).Color = Color3.new(0, 0, 0)
-				hexY = 176
+			local function paintSwatch()
+				swatch.BackgroundColor3 = color
+				swatch.BackgroundTransparency = 1 - alpha
 			end
 
-			local hexHolder = create("Frame", {
-				Position = UDim2.fromOffset(8, hexY),
-				Size = UDim2.fromOffset(204, 28),
-				BorderSizePixel = 0,
-				ZIndex = 62,
-				Parent = popup,
-			})
-			corner(hexHolder, 6)
-			local hexStroke = stroke(hexHolder, 1, 0.2)
-			bind(hexHolder, {BackgroundColor3 = "CardHover"})
-			bind(hexStroke, {Color = "Stroke"})
-			local hexBox = create("TextBox", {
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				Position = UDim2.fromOffset(10, 0),
-				Size = UDim2.new(1, -20, 1, 0),
-				FontFace = Library.Fonts.Regular,
-				TextSize = 13,
-				PlaceholderText = "#FFFFFF",
-				Text = "",
-				ClearTextOnFocus = false,
-				TextXAlignment = Enum.TextXAlignment.Left,
-				ZIndex = 63,
-				Parent = hexHolder,
-			})
-			bind(hexBox, {TextColor3 = "Text", PlaceholderColor3 = "SubText"})
-
-			local function getValue()
-				return {Color = Color3.fromHSV(hue, sat, val):ToHex(), Alpha = alpha}
-			end
+			paintSwatch()
+			commit(rec, color, true)
 
 			local function emit()
 				fire(data.Callback, color, alpha)
 			end
-
-			local function render(updateHex)
-				color = Color3.fromHSV(hue, sat, val)
-				svMap.BackgroundColor3 = Color3.fromHSV(hue, 1, 1)
-				svKnob.Position = UDim2.fromScale(sat, 1 - val)
-				hueKnob.Position = UDim2.fromScale(hue, 0.5)
-				swatch.BackgroundColor3 = color
-				swatch.BackgroundTransparency = 1 - alpha
-				if alphaFill then
-					alphaFill.BackgroundColor3 = color
-					alphaKnob.Position = UDim2.fromScale(alpha, 0.5)
-				end
-				if updateHex then
-					hexBox.Text = "#" .. string.upper(color:ToHex())
-				end
-			end
-
-			render(true)
-			commit(rec, color, true)
 
 			function Colorpicker:Set(newColor, newAlpha, silent)
 				local resolved = toColor(newColor, nil)
 				if not resolved then
 					return
 				end
-				hue, sat, val = Color3.toHSV(resolved)
+				color = resolved
 				if newAlpha ~= nil then
 					alpha = math.clamp(tonumber(newAlpha) or alpha, 0, 1)
 				end
-				render(true)
+				paintSwatch()
 				commit(rec, color, silent)
 				if not silent then
 					emit()
@@ -4034,198 +3990,609 @@ function Library:CreateWindow(config)
 				return color, alpha
 			end
 
-			local function apply()
-				render(true)
-				commit(rec, color)
-				emit()
-			end
-
-			local function updateSV(pos)
-				local size = svMap.AbsoluteSize
-				if size.X <= 0 or size.Y <= 0 then
-					return
-				end
-				sat = math.clamp((pos.X - svMap.AbsolutePosition.X) / size.X, 0, 1)
-				val = 1 - math.clamp((pos.Y - svMap.AbsolutePosition.Y) / size.Y, 0, 1)
-				apply()
-			end
-
-			local function updateHue(pos)
-				local width = hueBar.AbsoluteSize.X
-				if width <= 0 then
-					return
-				end
-				hue = math.clamp((pos.X - hueBar.AbsolutePosition.X) / width, 0, 0.999)
-				apply()
-			end
-
-			local function updateAlpha(pos)
-				local width = alphaBar.AbsoluteSize.X
-				if width <= 0 then
-					return
-				end
-				alpha = math.clamp((pos.X - alphaBar.AbsolutePosition.X) / width, 0, 1)
-				apply()
-			end
-
-			connect(svMap.InputBegan, function(input)
-				if isPress(input) then
-					dragMode = "sv"
-					updateSV(input.Position)
-				end
-			end)
-			connect(hueBar.InputBegan, function(input)
-				if isPress(input) then
-					dragMode = "hue"
-					updateHue(input.Position)
-				end
-			end)
-			if alphaBar then
-				connect(alphaBar.InputBegan, function(input)
-					if isPress(input) then
-						dragMode = "alpha"
-						updateAlpha(input.Position)
-					end
-				end)
-			end
-			connect(UserInputService.InputChanged, function(input)
-				if not dragMode or not isMove(input) then
-					return
-				end
-				if dragMode == "sv" then
-					updateSV(input.Position)
-				elseif dragMode == "hue" then
-					updateHue(input.Position)
-				elseif dragMode == "alpha" then
-					updateAlpha(input.Position)
-				end
-			end)
-			connect(UserInputService.InputEnded, function(input)
-				if dragMode and isPress(input) then
-					dragMode = nil
-				end
-			end)
-
-			connect(hexBox.Focused, function()
-				tween(hexStroke, 0.15, {Color = Window.Theme.Accent})
-			end)
-			connect(hexBox.FocusLost, function()
-				tween(hexStroke, 0.15, {Color = Window.Theme.Stroke})
-				local parsed = toColor(hexBox.Text, nil)
-				if parsed then
-					hue, sat, val = Color3.toHSV(parsed)
-					apply()
-				else
-					render(true)
-				end
-			end)
-
-			local function getSpace()
-				local bpos = swatchHolder.AbsolutePosition - gui.AbsolutePosition
-				local bsize = swatchHolder.AbsoluteSize
-				local viewport = gui.AbsoluteSize
-				return viewport.Y - (bpos.Y + bsize.Y) - 10, bpos.Y - 10
-			end
-
-			local function reposition()
-				if not swatchHolder.Parent then
-					return
-				end
-				local bpos = swatchHolder.AbsolutePosition - gui.AbsolutePosition
-				local bsize = swatchHolder.AbsoluteSize
-				local viewport = gui.AbsoluteSize
-				local x = math.clamp(bpos.X + bsize.X - popupWidth, 0, math.max(0, viewport.X - popupWidth))
-				local y = direction == "Up" and (bpos.Y - 4) or (bpos.Y + bsize.Y + 4)
-				popup.AnchorPoint = Vector2.new(0, direction == "Up" and 1 or 0)
-				popup.Position = UDim2.fromOffset(x, y)
-			end
-
-			local function closePopup()
-				if not open then
-					return
-				end
-				open = false
-				dragMode = nil
-				popupToken += 1
-				local myToken = popupToken
-				task.delay(0.35, function()
-					Window.HoverLocks = math.max(0, Window.HoverLocks - 1)
-				end)
-				tween(popup, 0.14, {Size = UDim2.fromOffset(popupWidth, 0)})
-				tween(swatchStroke, 0.15, {Color = Window.Theme.Stroke})
-				task.delay(0.12, function()
-					if myToken == popupToken and not open and blocker.Parent then
-						blocker.Visible = false
-					end
-				end)
-				task.delay(0.16, function()
-					if myToken == popupToken and not open then
-						if popup.Parent then
-							popup.Visible = false
-						end
-						if renderConnection then
-							renderConnection:Disconnect()
-							renderConnection = nil
-						end
-					end
-				end)
-			end
-
-			local function openPopup()
-				if open then
-					return
+			local function openPanel(cfg)
+				if Window.ActiveDialog then
+					Window.ActiveDialog:Close(true)
 				end
 				Window:ClosePopups()
-				open = true
-				Window.HoverLocks += 1
-				popupToken += 1
-				local below, above = getSpace()
-				if below >= popupHeight then
-					direction = "Down"
-				elseif above > below then
-					direction = "Up"
-				else
-					direction = "Down"
+
+				local Panel = {}
+				local closed = false
+				local width = math.min(cfg.Width or 440, math.max(260, main.AbsoluteSize.X - 24))
+
+				local tint = create("TextButton", {
+					Name = "ColorPanel",
+					AutoButtonColor = false,
+					Active = true,
+					Text = "",
+					BackgroundColor3 = Color3.new(0, 0, 0),
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					Size = UDim2.fromScale(1, 1),
+					ZIndex = 80,
+					Parent = main,
+				})
+				corner(tint, mainCorner.CornerRadius.Offset)
+
+				local root = create("CanvasGroup", {
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromScale(0.5, 0.5),
+					Size = UDim2.new(0, width, 0, 0),
+					AutomaticSize = Enum.AutomaticSize.Y,
+					GroupTransparency = 1,
+					BorderSizePixel = 0,
+					Active = true,
+					Parent = tint,
+				})
+				corner(root, 10)
+				local rootStroke = stroke(root, 1, 0.3)
+				bind(root, {BackgroundColor3 = "Card"})
+				glass(root, 0, 0.3)
+				bind(rootStroke, {Color = "Stroke"})
+				local rootScale = create("UIScale", {Scale = 1.08, Parent = root})
+				create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Parent = root})
+
+				local head = create("Frame", {
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 52),
+					LayoutOrder = 1,
+					Parent = root,
+				})
+				local headDot = create("Frame", {
+					AnchorPoint = Vector2.new(0, 0.5),
+					Position = UDim2.new(0, 22, 0.5, 0),
+					Size = UDim2.fromOffset(4, 16),
+					BorderSizePixel = 0,
+					Parent = head,
+				})
+				corner(headDot, 2)
+				bind(headDot, {BackgroundColor3 = "Accent"})
+				local headTitle = text({
+					Position = UDim2.fromOffset(34, 0),
+					Size = UDim2.new(1, -56, 1, 0),
+					FontFace = Library.Fonts.SemiBold,
+					TextSize = 17,
+					RichText = true,
+					Text = tostring(cfg.Title or "Colorpicker"),
+					TextTruncate = Enum.TextTruncate.AtEnd,
+					Parent = head,
+				})
+				bind(headTitle, {TextColor3 = "Text"})
+				local headLine = create("Frame", {
+					AnchorPoint = Vector2.new(0, 1),
+					Position = UDim2.fromScale(0, 1),
+					Size = UDim2.new(1, 0, 0, 1),
+					BackgroundTransparency = 0.5,
+					BorderSizePixel = 0,
+					Parent = head,
+				})
+				bind(headLine, {BackgroundColor3 = "Stroke"})
+
+				local bodyHolder = create("Frame", {
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, cfg.BodyHeight + 36),
+					LayoutOrder = 2,
+					Parent = root,
+				})
+				local body = create("Frame", {
+					BackgroundTransparency = 1,
+					Position = UDim2.fromOffset(22, 18),
+					Size = UDim2.new(1, -44, 1, -36),
+					Parent = bodyHolder,
+				})
+
+				local foot = create("Frame", {
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 72),
+					LayoutOrder = 3,
+					Parent = root,
+				})
+				bind(foot, {BackgroundColor3 = "Sidebar"})
+				glass(foot, 0, 0.55)
+				local footLine = create("Frame", {
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 1),
+					BackgroundTransparency = 0.5,
+					Parent = foot,
+				})
+				bind(footLine, {BackgroundColor3 = "Stroke"})
+				local footRow = create("Frame", {
+					BackgroundTransparency = 1,
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromScale(0.5, 0.5),
+					Size = UDim2.new(1, -44, 0, 36),
+					Parent = foot,
+				})
+				create("UIListLayout", {
+					FillDirection = Enum.FillDirection.Horizontal,
+					HorizontalAlignment = Enum.HorizontalAlignment.Center,
+					VerticalAlignment = Enum.VerticalAlignment.Center,
+					Padding = UDim.new(0, 10),
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					Parent = footRow,
+				})
+
+				local keyConnection
+
+				function Panel:Close(instant)
+					if closed then
+						return
+					end
+					closed = true
+					if keyConnection then
+						keyConnection:Disconnect()
+						keyConnection = nil
+					end
+					if Window.ActiveDialog == Panel then
+						Window.ActiveDialog = nil
+					end
+					if instant then
+						tint:Destroy()
+						return
+					end
+					tween(tint, 0.18, {BackgroundTransparency = 1})
+					tween(root, 0.18, {GroupTransparency = 1})
+					tween(rootScale, 0.18, {Scale = 1.08})
+					task.delay(0.2, function()
+						if tint.Parent then
+							tint:Destroy()
+						end
+					end)
 				end
-				render(true)
-				blocker.Visible = true
-				popup.Size = UDim2.fromOffset(popupWidth, 0)
-				popup.Visible = true
-				reposition()
-				tween(popup, 0.16, {Size = UDim2.fromOffset(popupWidth, popupHeight)})
-				tween(swatchStroke, 0.15, {Color = Window.Theme.Accent})
-				if not renderConnection then
-					renderConnection = RunService.RenderStepped:Connect(reposition)
-					table.insert(Window.Connections, renderConnection)
+
+				local function footButton(label, primary, order, callback)
+					local btn = create("TextButton", {
+						AutoButtonColor = false,
+						BorderSizePixel = 0,
+						Text = label,
+						FontFace = primary and Library.Fonts.SemiBold or Library.Fonts.Medium,
+						TextSize = 14,
+						Size = UDim2.new(0.5, -5, 1, 0),
+						LayoutOrder = order,
+						Parent = footRow,
+					})
+					corner(btn, 8)
+					local btnStroke = stroke(btn, 1, primary and 1 or 0.3)
+					bind(btnStroke, {Color = "Stroke"})
+					local hovering = false
+					local function paintButton(th, animate)
+						local duration = animate and 0.12 or 0
+						if primary then
+							tween(btn, duration, {
+								BackgroundColor3 = th.Accent,
+								BackgroundTransparency = hovering and 0.15 or 0,
+								TextColor3 = th.AccentText,
+							})
+						else
+							tween(btn, duration, {
+								BackgroundColor3 = hovering and th.Stroke or th.CardHover,
+								BackgroundTransparency = 0,
+								TextColor3 = th.Text,
+							})
+						end
+					end
+					bindFn(btn, function(th)
+						paintButton(th, false)
+					end)
+					connect(btn.MouseEnter, function()
+						hovering = true
+						paintButton(Window.Theme, true)
+					end)
+					connect(btn.MouseLeave, function()
+						hovering = false
+						paintButton(Window.Theme, true)
+					end)
+					connect(btn.MouseButton1Click, callback)
 				end
+
+				footButton("Cancel", false, 1, function()
+					Panel:Close()
+				end)
+				footButton("Done", true, 2, function()
+					Panel:Close()
+					fire(cfg.OnDone)
+				end)
+
+				connect(tint.MouseButton1Click, function()
+					Panel:Close()
+				end)
+
+				keyConnection = UserInputService.InputBegan:Connect(function(input)
+					if not closed and input.KeyCode == Enum.KeyCode.Escape and not UserInputService:GetFocusedTextBox() then
+						Panel:Close()
+					end
+				end)
+				table.insert(Window.Connections, keyConnection)
+
+				Window.ActiveDialog = Panel
+				cfg.Body(body)
+
+				tween(tint, 0.2, {BackgroundTransparency = 0.7})
+				tween(root, 0.2, {GroupTransparency = 0})
+				tween(rootScale, 0.2, {Scale = 1})
+				return Panel
 			end
 
-			function Colorpicker:OnDestroy()
-				closePopup()
-				if renderConnection then
-					renderConnection:Disconnect()
-					renderConnection = nil
-				end
-				blocker:Destroy()
-				popup:Destroy()
+			local function openDialog()
+				local hue, sat, val = Color3.toHSV(color)
+				local newAlpha = alpha
+				local startColor = color
+				local startAlpha = alpha
+				local dragMode
+				local conns = {}
+
+				openPanel({
+					Title = tostring(data.Title or data.Name or "Colorpicker"),
+					Width = 440,
+					BodyHeight = 196,
+					OnDone = function()
+						Colorpicker:Set(Color3.fromHSV(hue, sat, val), useAlpha and newAlpha or nil)
+					end,
+					Body = function(body)
+						local satMap = create("Frame", {
+							Position = UDim2.fromOffset(0, 0),
+							Size = UDim2.fromOffset(180, 160),
+							BorderSizePixel = 0,
+							Parent = body,
+						})
+						corner(satMap, 6)
+						local satStroke = stroke(satMap, 1, 0.3)
+						bind(satStroke, {Color = "Stroke"})
+						local whiteLayer = create("Frame", {
+							Size = UDim2.fromScale(1, 1),
+							BackgroundColor3 = Color3.new(1, 1, 1),
+							BorderSizePixel = 0,
+							ZIndex = 2,
+							Parent = satMap,
+						})
+						corner(whiteLayer, 6)
+						create("UIGradient", {Transparency = NumberSequence.new(0, 1), Parent = whiteLayer})
+						local blackLayer = create("Frame", {
+							Size = UDim2.fromScale(1, 1),
+							BackgroundColor3 = Color3.new(0, 0, 0),
+							BorderSizePixel = 0,
+							ZIndex = 3,
+							Parent = satMap,
+						})
+						corner(blackLayer, 6)
+						create("UIGradient", {Transparency = NumberSequence.new(1, 0), Rotation = 90, Parent = blackLayer})
+						local satKnob = create("Frame", {
+							AnchorPoint = Vector2.new(0.5, 0.5),
+							Size = UDim2.fromOffset(14, 14),
+							BackgroundTransparency = 1,
+							BorderSizePixel = 0,
+							ZIndex = 4,
+							Parent = satMap,
+						})
+						corner(satKnob, 7)
+						stroke(satKnob, 2, 0).Color = Color3.new(1, 1, 1)
+
+						local hueSlider = create("Frame", {
+							Position = UDim2.fromOffset(190, 0),
+							Size = UDim2.fromOffset(12, 190),
+							BackgroundColor3 = Color3.new(1, 1, 1),
+							BorderSizePixel = 0,
+							Parent = body,
+						})
+						corner(hueSlider, 6)
+						local hueStroke = stroke(hueSlider, 1, 0.3)
+						bind(hueStroke, {Color = "Stroke"})
+						local hueKeys = {}
+						for i = 0, 10 do
+							table.insert(hueKeys, ColorSequenceKeypoint.new(i / 10, Color3.fromHSV(i / 10, 1, 1)))
+						end
+						create("UIGradient", {Color = ColorSequence.new(hueKeys), Rotation = 90, Parent = hueSlider})
+						local hueHolder = create("Frame", {
+							Size = UDim2.new(1, 0, 1, -10),
+							Position = UDim2.fromOffset(0, 5),
+							BackgroundTransparency = 1,
+							Parent = hueSlider,
+						})
+						local hueKnob = create("Frame", {
+							AnchorPoint = Vector2.new(0.5, 0.5),
+							Size = UDim2.fromOffset(14, 14),
+							BorderSizePixel = 0,
+							Parent = hueHolder,
+						})
+						corner(hueKnob, 7)
+						bind(hueKnob, {BackgroundColor3 = "Text"})
+						local hueKnobStroke = stroke(hueKnob, 2, 0)
+						bind(hueKnobStroke, {Color = "Card"})
+
+						local alphaSlider, alphaColor, alphaKnob
+						if useAlpha then
+							alphaSlider = create("ImageLabel", {
+								Position = UDim2.fromOffset(210, 0),
+								Size = UDim2.fromOffset(12, 190),
+								BackgroundTransparency = 1,
+								Image = CHECKER,
+								ImageTransparency = 0.45,
+								ScaleType = Enum.ScaleType.Tile,
+								TileSize = UDim2.fromOffset(40, 40),
+								Parent = body,
+							})
+							corner(alphaSlider, 6)
+							local alphaStroke = stroke(alphaSlider, 1, 0.3)
+							bind(alphaStroke, {Color = "Stroke"})
+							alphaColor = create("Frame", {
+								Size = UDim2.fromScale(1, 1),
+								BorderSizePixel = 0,
+								ZIndex = 2,
+								Parent = alphaSlider,
+							})
+							corner(alphaColor, 6)
+							create("UIGradient", {Transparency = NumberSequence.new(0, 1), Rotation = 90, Parent = alphaColor})
+							local alphaHolder = create("Frame", {
+								Size = UDim2.new(1, 0, 1, -10),
+								Position = UDim2.fromOffset(0, 5),
+								BackgroundTransparency = 1,
+								ZIndex = 3,
+								Parent = alphaSlider,
+							})
+							alphaKnob = create("Frame", {
+								AnchorPoint = Vector2.new(0.5, 0.5),
+								Size = UDim2.fromOffset(14, 14),
+								BorderSizePixel = 0,
+								ZIndex = 3,
+								Parent = alphaHolder,
+							})
+							corner(alphaKnob, 7)
+							bind(alphaKnob, {BackgroundColor3 = "Text"})
+							local alphaKnobStroke = stroke(alphaKnob, 2, 0)
+							bind(alphaKnobStroke, {Color = "Card"})
+						end
+
+						local inputX = useAlpha and 240 or 220
+						local labelX = inputX + 100
+
+						local function makeBox(y, label)
+							local holder = create("Frame", {
+								Position = UDim2.fromOffset(inputX, y),
+								Size = UDim2.fromOffset(90, 32),
+								BorderSizePixel = 0,
+								Parent = body,
+							})
+							corner(holder, 6)
+							local holderStroke = stroke(holder, 1, 0.3)
+							bind(holder, {BackgroundColor3 = "CardHover"})
+							glass(holder, 0, 0.55)
+							bind(holderStroke, {Color = "Stroke"})
+							local box = create("TextBox", {
+								BackgroundTransparency = 1,
+								BorderSizePixel = 0,
+								Position = UDim2.fromOffset(8, 0),
+								Size = UDim2.new(1, -16, 1, 0),
+								FontFace = Library.Fonts.Regular,
+								TextSize = 13,
+								Text = "",
+								ClearTextOnFocus = false,
+								TextXAlignment = Enum.TextXAlignment.Left,
+								Parent = holder,
+							})
+							bind(box, {TextColor3 = "Text"})
+							local caption = text({
+								Position = UDim2.fromOffset(labelX, y),
+								Size = UDim2.new(1, -labelX, 0, 32),
+								FontFace = Library.Fonts.Medium,
+								Text = label,
+								Parent = body,
+							})
+							bind(caption, {TextColor3 = "Text"})
+							connect(box.Focused, function()
+								tween(holderStroke, 0.15, {Color = Window.Theme.Accent})
+							end)
+							connect(box.FocusLost, function()
+								tween(holderStroke, 0.15, {Color = Window.Theme.Stroke})
+							end)
+							return box
+						end
+
+						local hexBox = makeBox(0, "Hex")
+						local redBox = makeBox(40, "Red")
+						local greenBox = makeBox(80, "Green")
+						local blueBox = makeBox(120, "Blue")
+						local alphaBox = useAlpha and makeBox(160, "Alpha") or nil
+
+						local function colorBox(x, shown)
+							local checker = create("ImageLabel", {
+								Position = UDim2.fromOffset(x, 166),
+								Size = UDim2.fromOffset(88, 24),
+								BackgroundTransparency = 1,
+								Image = CHECKER,
+								ImageTransparency = 0.45,
+								ScaleType = Enum.ScaleType.Tile,
+								TileSize = UDim2.fromOffset(40, 40),
+								Parent = body,
+							})
+							corner(checker, 6)
+							local checkerStroke = stroke(checker, 2, 0.75)
+							bind(checkerStroke, {Color = "Stroke"})
+							local fill = create("Frame", {
+								Size = UDim2.fromScale(1, 1),
+								BorderSizePixel = 0,
+								BackgroundColor3 = shown,
+								Parent = checker,
+							})
+							corner(fill, 6)
+							return fill
+						end
+
+						local newFill = colorBox(0, startColor)
+						local oldFill = colorBox(92, startColor)
+						oldFill.BackgroundTransparency = 1 - startAlpha
+
+						local function currentRGB()
+							local c = Color3.fromHSV(hue, sat, val)
+							return math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5)
+						end
+
+						local function display()
+							local c = Color3.fromHSV(hue, sat, val)
+							satMap.BackgroundColor3 = Color3.fromHSV(hue, 1, 1)
+							satKnob.Position = UDim2.fromScale(sat, 1 - val)
+							hueKnob.Position = UDim2.new(0.5, 0, hue, 0)
+							newFill.BackgroundColor3 = c
+							newFill.BackgroundTransparency = useAlpha and (1 - newAlpha) or 0
+							local r, g, bl = currentRGB()
+							hexBox.Text = "#" .. string.upper(c:ToHex())
+							redBox.Text = tostring(r)
+							greenBox.Text = tostring(g)
+							blueBox.Text = tostring(bl)
+							if useAlpha then
+								alphaColor.BackgroundColor3 = c
+								alphaKnob.Position = UDim2.new(0.5, 0, 1 - newAlpha, 0)
+								alphaBox.Text = tostring(math.floor(newAlpha * 100 + 0.5)) .. "%"
+							end
+						end
+
+						local function setRGB(r, g, bl)
+							local c = Color3.fromRGB(math.clamp(r, 0, 255), math.clamp(g, 0, 255), math.clamp(bl, 0, 255))
+							hue, sat, val = Color3.toHSV(c)
+						end
+
+						local function track(signal, fn)
+							local connection = signal:Connect(fn)
+							table.insert(conns, connection)
+							table.insert(Window.Connections, connection)
+							return connection
+						end
+
+						local function updateMap(pos)
+							local size = satMap.AbsoluteSize
+							if size.X <= 0 or size.Y <= 0 then
+								return
+							end
+							sat = math.clamp((pos.X - satMap.AbsolutePosition.X) / size.X, 0, 1)
+							val = 1 - math.clamp((pos.Y - satMap.AbsolutePosition.Y) / size.Y, 0, 1)
+							display()
+						end
+
+						local function updateHue(pos)
+							local height = hueSlider.AbsoluteSize.Y
+							if height <= 0 then
+								return
+							end
+							hue = math.clamp((pos.Y - hueSlider.AbsolutePosition.Y) / height, 0, 0.999)
+							display()
+						end
+
+						local function updateAlpha(pos)
+							local height = alphaSlider.AbsoluteSize.Y
+							if height <= 0 then
+								return
+							end
+							newAlpha = 1 - math.clamp((pos.Y - alphaSlider.AbsolutePosition.Y) / height, 0, 1)
+							display()
+						end
+
+						track(satMap.InputBegan, function(input)
+							if isPress(input) then
+								dragMode = "map"
+								updateMap(input.Position)
+							end
+						end)
+						track(hueSlider.InputBegan, function(input)
+							if isPress(input) then
+								dragMode = "hue"
+								updateHue(input.Position)
+							end
+						end)
+						if alphaSlider then
+							track(alphaSlider.InputBegan, function(input)
+								if isPress(input) then
+									dragMode = "alpha"
+									updateAlpha(input.Position)
+								end
+							end)
+						end
+						track(UserInputService.InputChanged, function(input)
+							if not dragMode or not isMove(input) then
+								return
+							end
+							if dragMode == "map" then
+								updateMap(input.Position)
+							elseif dragMode == "hue" then
+								updateHue(input.Position)
+							elseif dragMode == "alpha" then
+								updateAlpha(input.Position)
+							end
+						end)
+						track(UserInputService.InputEnded, function(input)
+							if dragMode and isPress(input) then
+								dragMode = nil
+							end
+						end)
+
+						track(hexBox.FocusLost, function(enter)
+							if enter then
+								local parsed = toColor(hexBox.Text, nil)
+								if parsed then
+									hue, sat, val = Color3.toHSV(parsed)
+								end
+							end
+							display()
+						end)
+
+						local function channelHandler(box, channel)
+							track(box.FocusLost, function(enter)
+								local number = tonumber(box.Text)
+								if enter and number then
+									local r, g, bl = currentRGB()
+									if channel == 1 then
+										r = number
+									elseif channel == 2 then
+										g = number
+									else
+										bl = number
+									end
+									setRGB(r, g, bl)
+								end
+								display()
+							end)
+						end
+
+						channelHandler(redBox, 1)
+						channelHandler(greenBox, 2)
+						channelHandler(blueBox, 3)
+
+						if alphaBox then
+							track(alphaBox.FocusLost, function(enter)
+								local number = tonumber((string.gsub(alphaBox.Text, "%%", "")))
+								if enter and number then
+									newAlpha = math.clamp(number / 100, 0, 1)
+								end
+								display()
+							end)
+						end
+
+						track(body.Destroying, function()
+							for _, connection in ipairs(conns) do
+								connection:Disconnect()
+							end
+						end)
+
+						display()
+					end,
+				})
 			end
 
-			table.insert(Window.PopupClosers, closePopup)
+			function Colorpicker:Open()
+				openDialog()
+			end
 
 			hoverCard(card, overlay)
 
 			connect(overlay.MouseButton1Click, function()
-				if open then
-					closePopup()
-				else
-					openPopup()
+				if Window.Destroyed then
+					return
 				end
+				openDialog()
 			end)
 
-			connect(blocker.MouseButton1Click, closePopup)
-
 			rec.Default = {Color = defaultColor:ToHex(), Alpha = defaultAlpha}
-			rec.Get = getValue
+			rec.Get = function()
+				return {Color = color:ToHex(), Alpha = alpha}
+			end
 			rec.Set = function(v, silent)
 				if type(v) == "table" then
 					Colorpicker:Set(v.Color, v.Alpha, silent)
@@ -4376,7 +4743,7 @@ function Library:CreateWindow(config)
 			end)
 
 			local subContext = {Container = container, Items = SubTab.Items, Order = 0, Sub = SubTab}
-			for _, name in ipairs({"AddSection", "AddButton", "AddParagraph", "AddToggle", "AddSlider", "AddInput", "AddDropdown", "AddKeybind", "AddColorpicker", "AddSubTab"}) do
+			for _, name in ipairs({"AddSection", "AddButton", "AddParagraph", "AddToggle", "AddSlider", "AddInput", "AddDropdown", "AddKeybind", "AddColorpicker", "AddComponent", "AddSubTab"}) do
 				SubTab[name] = function(_, ...)
 					return withContext(subContext, Tab[name], Tab, ...)
 				end
