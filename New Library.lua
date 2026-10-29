@@ -8,7 +8,7 @@ local ContextActionService = game:GetService("ContextActionService")
 
 local ParentGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
-local Library = {Flags = {}, Windows = {}, LastWindow = nil, MinimizeKey = Enum.KeyCode.LeftControl}
+local Library = {Flag = {}, Windows = {}, LastWindow = nil, MinimizeKey = Enum.KeyCode.LeftControl}
 
 local MinimizeNotif = false
 local Mobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
@@ -736,19 +736,22 @@ function Library:CreateWindow(config)
 	end
 
 	local function collectFlags()
-		local flags = {}
+		local values = {}
 		for _, rec in ipairs(saveRecords()) do
 			local ok, value = pcall(rec.Get)
 			if ok and value ~= nil then
-				flags[rec.Key] = value
+				values[rec.Key] = value
 			end
 		end
-		return flags
+		return values
 	end
 
 	local function extractFlags(decoded)
 		if type(decoded.Flags) == "table" then
 			return decoded.Flags
+		end
+		if type(decoded.Idx) == "table" then
+			return decoded.Idx
 		end
 		return decoded
 	end
@@ -810,16 +813,16 @@ function Library:CreateWindow(config)
 		if not okDecode or type(decoded) ~= "table" then
 			error("invalid save string", 0)
 		end
-		local flags = extractFlags(decoded)
+		local values = extractFlags(decoded)
 		Window.SuspendSave = true
 		for _, rec in ipairs(saveRecords()) do
-			local value = flags[rec.Key]
+			local value = values[rec.Key]
 			if value ~= nil then
 				pcall(rec.Set, value, false, true)
 			end
 		end
 		Window.SuspendSave = false
-		Window.SaveData = flags
+		Window.SaveData = values
 		Window:_QueueSave()
 		return true
 	end
@@ -1996,7 +1999,21 @@ function Library:CreateWindow(config)
 		return Minimizer
 	end
 
-	function Window:SelectTab(tab)
+	function Window:SelectTab(target)
+		local tab
+		if type(target) == "number" then
+			tab = self.Tabs[target]
+		elseif type(target) == "string" then
+			local wanted = string.lower(stripTags(target))
+			for _, t in ipairs(self.Tabs) do
+				if string.lower(stripTags(t.Title)) == wanted then
+					tab = t
+					break
+				end
+			end
+		elseif type(target) == "table" then
+			tab = target
+		end
 		if not tab then
 			return
 		end
@@ -2220,6 +2237,7 @@ function Library:CreateWindow(config)
 		Tab.Page = page
 
 		local ctx = {Container = page, Items = Tab.Items, Order = 0}
+		local tabCtx = ctx
 
 		local function nextOrder()
 			ctx.Order += 1
@@ -2246,8 +2264,8 @@ function Library:CreateWindow(config)
 
 		local function renameFlag(rec, newKey)
 			Window.FlagKeys[rec.Key] = nil
-			Library.Flags[newKey] = Library.Flags[rec.Key]
-			Library.Flags[rec.Key] = nil
+			Library.Flag[newKey] = Library.Flag[rec.Key]
+			Library.Flag[rec.Key] = nil
 			rec.Key = newKey
 			Window.FlagKeys[newKey] = rec
 			if rec.Save and rec.Set and Window.SaveData[newKey] ~= nil then
@@ -2258,10 +2276,10 @@ function Library:CreateWindow(config)
 			end
 		end
 
-		local function newFlag(flag, data)
+		local function newFlag(idx, data)
 			local base
-			if flag ~= nil and tostring(flag) ~= "" then
-				base = tostring(flag)
+			if idx ~= nil and tostring(idx) ~= "" then
+				base = tostring(idx)
 			else
 				base = stripTags(data.Title or data.Name or "")
 			end
@@ -2292,7 +2310,7 @@ function Library:CreateWindow(config)
 		end
 
 		local function commit(rec, value, silent)
-			Library.Flags[rec.Key] = value
+			Library.Flag[rec.Key] = value
 			if not silent then
 				Window:_QueueSave(rec)
 			end
@@ -2503,7 +2521,7 @@ function Library:CreateWindow(config)
 			local contentOrder = nextOrder()
 			local sectionContext
 			local Section = {}
-			for _, name in ipairs({"AddButton", "AddParagraph", "AddToggle", "AddSlider", "AddInput", "AddDropdown", "AddKeybind"}) do
+			for _, name in ipairs({"AddButton", "AddParagraph", "AddToggle", "AddSlider", "AddInput", "AddDropdown", "AddKeybind", "AddColorpicker"}) do
 				Section[name] = function(_, ...)
 					if not sectionContext then
 						local container = create("Frame", {
@@ -2599,8 +2617,8 @@ function Library:CreateWindow(config)
 		end
 
 		function Tab:AddToggle(a, b)
-			local flag, data = splitArgs(a, b)
-			local rec = newFlag(flag, data)
+			local idx, data = splitArgs(a, b)
+			local rec = newFlag(idx, data)
 			local value = data.Default == true
 			if rec.Saved ~= nil then
 				value = rec.Saved == true
@@ -2689,8 +2707,8 @@ function Library:CreateWindow(config)
 		end
 
 		function Tab:AddSlider(a, b)
-			local flag, data = splitArgs(a, b)
-			local rec = newFlag(flag, data)
+			local idx, data = splitArgs(a, b)
+			local rec = newFlag(idx, data)
 			local min = tonumber(data.Min) or 0
 			local max = tonumber(data.Max) or 100
 			if max <= min then
@@ -2707,7 +2725,7 @@ function Library:CreateWindow(config)
 			local fraction = string.match(string.format("%.6f", increment), "%.(%d+)") or ""
 			fraction = string.gsub(fraction, "0+$", "")
 			local decimals = #fraction
-			local suffix = tostring(data.Suffix or "")
+			local formatter = typeof(data.Format) == "function" and data.Format or nil
 			local dragging = false
 			local Slider = {}
 
@@ -2800,7 +2818,14 @@ function Library:CreateWindow(config)
 				local rel = (value - min) / (max - min)
 				fill.Size = UDim2.fromScale(rel, 1)
 				knob.Position = UDim2.new(rel, 0, 0.5, 0)
-				valueLabel.Text = tostring(value) .. suffix
+				local shown = tostring(value)
+				if formatter then
+					local ok, result = pcall(formatter, value)
+					if ok and type(result) == "string" and result ~= "" then
+						shown = result
+					end
+				end
+				valueLabel.Text = shown
 			end
 
 			render()
@@ -2871,8 +2896,8 @@ function Library:CreateWindow(config)
 		end
 
 		function Tab:AddInput(a, b)
-			local flag, data = splitArgs(a, b)
-			local rec = newFlag(flag, data)
+			local idx, data = splitArgs(a, b)
+			local rec = newFlag(idx, data)
 			local Input = {}
 			local numeric = data.Numeric == true
 			local finished = data.Finished == true
@@ -3032,8 +3057,8 @@ function Library:CreateWindow(config)
 		end
 
 		function Tab:AddDropdown(a, b)
-			local flag, data = splitArgs(a, b)
-			local rec = newFlag(flag, data)
+			local idx, data = splitArgs(a, b)
+			local rec = newFlag(idx, data)
 			local multi = data.Multi == true
 			local placeholder = tostring(data.Placeholder or "Select")
 			local options = {}
@@ -3560,11 +3585,11 @@ function Library:CreateWindow(config)
 		end
 
 		function Tab:AddKeybind(a, b)
-			local flag, data = splitArgs(a, b)
+			local idx, data = splitArgs(a, b)
 			if data.Title == nil and data.Name == nil then
 				data.Title = "Keybind"
 			end
-			local rec = newFlag(flag, data)
+			local rec = newFlag(idx, data)
 			local defaultKey = tostring(data.Default or "None")
 			local defaultMode = tostring(data.Mode or "Toggle")
 			local Keybind = {
@@ -3737,6 +3762,515 @@ function Library:CreateWindow(config)
 			return finish(Keybind, card, titleObj, descObj, rec)
 		end
 
+		function Tab:AddColorpicker(a, b)
+			local idx, data = splitArgs(a, b)
+			local rec = newFlag(idx, data)
+			local useAlpha = data.Transparency == true
+			local Colorpicker = {Type = "Colorpicker"}
+			local open = false
+			local popupToken = 0
+			local direction = "Down"
+			local renderConnection
+			local popupWidth = 220
+			local popupHeight = useAlpha and 212 or 192
+			local dragMode
+
+			local function toColor(v, fallback)
+				if typeof(v) == "Color3" then
+					return v
+				end
+				if type(v) == "string" then
+					local ok, result = pcall(Color3.fromHex, v)
+					if ok and typeof(result) == "Color3" then
+						return result
+					end
+				end
+				return fallback
+			end
+
+			local defaultColor = toColor(data.Default, Color3.fromRGB(255, 255, 255))
+			local defaultAlpha = math.clamp(tonumber(data.Alpha) or 1, 0, 1)
+			local color = defaultColor
+			local alpha = defaultAlpha
+			if type(rec.Saved) == "table" then
+				color = toColor(rec.Saved.Color, defaultColor)
+				alpha = math.clamp(tonumber(rec.Saved.Alpha) or defaultAlpha, 0, 1)
+			elseif rec.Saved ~= nil then
+				color = toColor(rec.Saved, defaultColor)
+			end
+			local hue, sat, val = Color3.toHSV(color)
+
+			local card = newCard()
+			local _, row, overlay = newRow(card)
+			local _, titleObj, descObj = newText(row, data, UDim2.new(1, -52, 0, 0))
+
+			local swatchHolder = create("Frame", {
+				Size = UDim2.fromOffset(40, 22),
+				BorderSizePixel = 0,
+				LayoutOrder = 2,
+				Parent = row,
+			})
+			corner(swatchHolder, 6)
+			local swatchStroke = stroke(swatchHolder, 1, 0.2)
+			bind(swatchHolder, {BackgroundColor3 = "Track"})
+			bind(swatchStroke, {Color = "Stroke"})
+			local swatch = create("Frame", {
+				Size = UDim2.fromScale(1, 1),
+				BorderSizePixel = 0,
+				Parent = swatchHolder,
+			})
+			corner(swatch, 6)
+
+			local blocker = create("TextButton", {
+				BackgroundTransparency = 1,
+				AutoButtonColor = false,
+				Active = true,
+				Text = "",
+				Size = UDim2.fromScale(1, 1),
+				ZIndex = 60,
+				Visible = false,
+				Parent = gui,
+			})
+
+			local popup = create("TextButton", {
+				BorderSizePixel = 0,
+				AutoButtonColor = false,
+				Active = true,
+				Text = "",
+				Size = UDim2.fromOffset(popupWidth, 0),
+				ClipsDescendants = true,
+				Visible = false,
+				ZIndex = 61,
+				Parent = gui,
+			})
+			corner(popup, 8)
+			local popupStroke = stroke(popup, 1, 0.2)
+			bind(popup, {BackgroundColor3 = "Card"})
+			glass(popup, 0, 0.06)
+			bind(popupStroke, {Color = "Stroke"})
+
+			local svMap = create("Frame", {
+				Position = UDim2.fromOffset(8, 8),
+				Size = UDim2.fromOffset(204, 120),
+				BorderSizePixel = 0,
+				ZIndex = 62,
+				Parent = popup,
+			})
+			corner(svMap, 6)
+			local whiteLayer = create("Frame", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundColor3 = Color3.new(1, 1, 1),
+				BorderSizePixel = 0,
+				ZIndex = 63,
+				Parent = svMap,
+			})
+			corner(whiteLayer, 6)
+			create("UIGradient", {
+				Transparency = NumberSequence.new(0, 1),
+				Parent = whiteLayer,
+			})
+			local blackLayer = create("Frame", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundColor3 = Color3.new(0, 0, 0),
+				BorderSizePixel = 0,
+				ZIndex = 64,
+				Parent = svMap,
+			})
+			corner(blackLayer, 6)
+			create("UIGradient", {
+				Transparency = NumberSequence.new(1, 0),
+				Rotation = 90,
+				Parent = blackLayer,
+			})
+			local svKnob = create("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Size = UDim2.fromOffset(12, 12),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				ZIndex = 66,
+				Parent = svMap,
+			})
+			corner(svKnob, 6)
+			stroke(svKnob, 2, 0).Color = Color3.new(1, 1, 1)
+
+			local hueBar = create("Frame", {
+				Position = UDim2.fromOffset(8, 136),
+				Size = UDim2.fromOffset(204, 12),
+				BackgroundColor3 = Color3.new(1, 1, 1),
+				BorderSizePixel = 0,
+				ZIndex = 62,
+				Parent = popup,
+			})
+			corner(hueBar, 6)
+			local hueKeys = {}
+			for i = 0, 6 do
+				table.insert(hueKeys, ColorSequenceKeypoint.new(i / 6, Color3.fromHSV(math.min(i / 6, 0.999), 1, 1)))
+			end
+			create("UIGradient", {Color = ColorSequence.new(hueKeys), Parent = hueBar})
+			local hueKnob = create("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0, 0.5),
+				Size = UDim2.fromOffset(10, 16),
+				BackgroundColor3 = Color3.new(1, 1, 1),
+				BorderSizePixel = 0,
+				ZIndex = 63,
+				Parent = hueBar,
+			})
+			corner(hueKnob, 4)
+			stroke(hueKnob, 1, 0.3).Color = Color3.new(0, 0, 0)
+
+			local alphaBar, alphaFill, alphaKnob
+			local hexY = 156
+			if useAlpha then
+				alphaBar = create("Frame", {
+					Position = UDim2.fromOffset(8, 156),
+					Size = UDim2.fromOffset(204, 12),
+					BorderSizePixel = 0,
+					ZIndex = 62,
+					Parent = popup,
+				})
+				corner(alphaBar, 6)
+				bind(alphaBar, {BackgroundColor3 = "Track"})
+				alphaFill = create("Frame", {
+					Size = UDim2.fromScale(1, 1),
+					BorderSizePixel = 0,
+					ZIndex = 63,
+					Parent = alphaBar,
+				})
+				corner(alphaFill, 6)
+				create("UIGradient", {
+					Transparency = NumberSequence.new(1, 0),
+					Parent = alphaFill,
+				})
+				alphaKnob = create("Frame", {
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromScale(1, 0.5),
+					Size = UDim2.fromOffset(10, 16),
+					BackgroundColor3 = Color3.new(1, 1, 1),
+					BorderSizePixel = 0,
+					ZIndex = 64,
+					Parent = alphaBar,
+				})
+				corner(alphaKnob, 4)
+				stroke(alphaKnob, 1, 0.3).Color = Color3.new(0, 0, 0)
+				hexY = 176
+			end
+
+			local hexHolder = create("Frame", {
+				Position = UDim2.fromOffset(8, hexY),
+				Size = UDim2.fromOffset(204, 28),
+				BorderSizePixel = 0,
+				ZIndex = 62,
+				Parent = popup,
+			})
+			corner(hexHolder, 6)
+			local hexStroke = stroke(hexHolder, 1, 0.2)
+			bind(hexHolder, {BackgroundColor3 = "CardHover"})
+			bind(hexStroke, {Color = "Stroke"})
+			local hexBox = create("TextBox", {
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				Position = UDim2.fromOffset(10, 0),
+				Size = UDim2.new(1, -20, 1, 0),
+				FontFace = Library.Fonts.Regular,
+				TextSize = 13,
+				PlaceholderText = "#FFFFFF",
+				Text = "",
+				ClearTextOnFocus = false,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				ZIndex = 63,
+				Parent = hexHolder,
+			})
+			bind(hexBox, {TextColor3 = "Text", PlaceholderColor3 = "SubText"})
+
+			local function getValue()
+				return {Color = Color3.fromHSV(hue, sat, val):ToHex(), Alpha = alpha}
+			end
+
+			local function emit()
+				fire(data.Callback, color, alpha)
+			end
+
+			local function render(updateHex)
+				color = Color3.fromHSV(hue, sat, val)
+				svMap.BackgroundColor3 = Color3.fromHSV(hue, 1, 1)
+				svKnob.Position = UDim2.fromScale(sat, 1 - val)
+				hueKnob.Position = UDim2.fromScale(hue, 0.5)
+				swatch.BackgroundColor3 = color
+				swatch.BackgroundTransparency = 1 - alpha
+				if alphaFill then
+					alphaFill.BackgroundColor3 = color
+					alphaKnob.Position = UDim2.fromScale(alpha, 0.5)
+				end
+				if updateHex then
+					hexBox.Text = "#" .. string.upper(color:ToHex())
+				end
+			end
+
+			render(true)
+			commit(rec, color, true)
+
+			function Colorpicker:Set(newColor, newAlpha, silent)
+				local resolved = toColor(newColor, nil)
+				if not resolved then
+					return
+				end
+				hue, sat, val = Color3.toHSV(resolved)
+				if newAlpha ~= nil then
+					alpha = math.clamp(tonumber(newAlpha) or alpha, 0, 1)
+				end
+				render(true)
+				commit(rec, color, silent)
+				if not silent then
+					emit()
+				end
+			end
+
+			function Colorpicker:SetValue(newColor, newAlpha, silent)
+				Colorpicker:Set(newColor, newAlpha, silent)
+			end
+
+			function Colorpicker:Get()
+				return color, alpha
+			end
+
+			local function apply()
+				render(true)
+				commit(rec, color)
+				emit()
+			end
+
+			local function updateSV(pos)
+				local size = svMap.AbsoluteSize
+				if size.X <= 0 or size.Y <= 0 then
+					return
+				end
+				sat = math.clamp((pos.X - svMap.AbsolutePosition.X) / size.X, 0, 1)
+				val = 1 - math.clamp((pos.Y - svMap.AbsolutePosition.Y) / size.Y, 0, 1)
+				apply()
+			end
+
+			local function updateHue(pos)
+				local width = hueBar.AbsoluteSize.X
+				if width <= 0 then
+					return
+				end
+				hue = math.clamp((pos.X - hueBar.AbsolutePosition.X) / width, 0, 0.999)
+				apply()
+			end
+
+			local function updateAlpha(pos)
+				local width = alphaBar.AbsoluteSize.X
+				if width <= 0 then
+					return
+				end
+				alpha = math.clamp((pos.X - alphaBar.AbsolutePosition.X) / width, 0, 1)
+				apply()
+			end
+
+			connect(svMap.InputBegan, function(input)
+				if isPress(input) then
+					dragMode = "sv"
+					updateSV(input.Position)
+				end
+			end)
+			connect(hueBar.InputBegan, function(input)
+				if isPress(input) then
+					dragMode = "hue"
+					updateHue(input.Position)
+				end
+			end)
+			if alphaBar then
+				connect(alphaBar.InputBegan, function(input)
+					if isPress(input) then
+						dragMode = "alpha"
+						updateAlpha(input.Position)
+					end
+				end)
+			end
+			connect(UserInputService.InputChanged, function(input)
+				if not dragMode or not isMove(input) then
+					return
+				end
+				if dragMode == "sv" then
+					updateSV(input.Position)
+				elseif dragMode == "hue" then
+					updateHue(input.Position)
+				elseif dragMode == "alpha" then
+					updateAlpha(input.Position)
+				end
+			end)
+			connect(UserInputService.InputEnded, function(input)
+				if dragMode and isPress(input) then
+					dragMode = nil
+				end
+			end)
+
+			connect(hexBox.Focused, function()
+				tween(hexStroke, 0.15, {Color = Window.Theme.Accent})
+			end)
+			connect(hexBox.FocusLost, function()
+				tween(hexStroke, 0.15, {Color = Window.Theme.Stroke})
+				local parsed = toColor(hexBox.Text, nil)
+				if parsed then
+					hue, sat, val = Color3.toHSV(parsed)
+					apply()
+				else
+					render(true)
+				end
+			end)
+
+			local function getSpace()
+				local bpos = swatchHolder.AbsolutePosition - gui.AbsolutePosition
+				local bsize = swatchHolder.AbsoluteSize
+				local viewport = gui.AbsoluteSize
+				return viewport.Y - (bpos.Y + bsize.Y) - 10, bpos.Y - 10
+			end
+
+			local function reposition()
+				if not swatchHolder.Parent then
+					return
+				end
+				local bpos = swatchHolder.AbsolutePosition - gui.AbsolutePosition
+				local bsize = swatchHolder.AbsoluteSize
+				local viewport = gui.AbsoluteSize
+				local x = math.clamp(bpos.X + bsize.X - popupWidth, 0, math.max(0, viewport.X - popupWidth))
+				local y = direction == "Up" and (bpos.Y - 4) or (bpos.Y + bsize.Y + 4)
+				popup.AnchorPoint = Vector2.new(0, direction == "Up" and 1 or 0)
+				popup.Position = UDim2.fromOffset(x, y)
+			end
+
+			local function closePopup()
+				if not open then
+					return
+				end
+				open = false
+				dragMode = nil
+				popupToken += 1
+				local myToken = popupToken
+				task.delay(0.35, function()
+					Window.HoverLocks = math.max(0, Window.HoverLocks - 1)
+				end)
+				tween(popup, 0.14, {Size = UDim2.fromOffset(popupWidth, 0)})
+				tween(swatchStroke, 0.15, {Color = Window.Theme.Stroke})
+				task.delay(0.12, function()
+					if myToken == popupToken and not open and blocker.Parent then
+						blocker.Visible = false
+					end
+				end)
+				task.delay(0.16, function()
+					if myToken == popupToken and not open then
+						if popup.Parent then
+							popup.Visible = false
+						end
+						if renderConnection then
+							renderConnection:Disconnect()
+							renderConnection = nil
+						end
+					end
+				end)
+			end
+
+			local function openPopup()
+				if open then
+					return
+				end
+				Window:ClosePopups()
+				open = true
+				Window.HoverLocks += 1
+				popupToken += 1
+				local below, above = getSpace()
+				if below >= popupHeight then
+					direction = "Down"
+				elseif above > below then
+					direction = "Up"
+				else
+					direction = "Down"
+				end
+				render(true)
+				blocker.Visible = true
+				popup.Size = UDim2.fromOffset(popupWidth, 0)
+				popup.Visible = true
+				reposition()
+				tween(popup, 0.16, {Size = UDim2.fromOffset(popupWidth, popupHeight)})
+				tween(swatchStroke, 0.15, {Color = Window.Theme.Accent})
+				if not renderConnection then
+					renderConnection = RunService.RenderStepped:Connect(reposition)
+					table.insert(Window.Connections, renderConnection)
+				end
+			end
+
+			function Colorpicker:OnDestroy()
+				closePopup()
+				if renderConnection then
+					renderConnection:Disconnect()
+					renderConnection = nil
+				end
+				blocker:Destroy()
+				popup:Destroy()
+			end
+
+			table.insert(Window.PopupClosers, closePopup)
+
+			hoverCard(card, overlay)
+
+			connect(overlay.MouseButton1Click, function()
+				if open then
+					closePopup()
+				else
+					openPopup()
+				end
+			end)
+
+			connect(blocker.MouseButton1Click, closePopup)
+
+			rec.Default = {Color = defaultColor:ToHex(), Alpha = defaultAlpha}
+			rec.Get = getValue
+			rec.Set = function(v, silent)
+				if type(v) == "table" then
+					Colorpicker:Set(v.Color, v.Alpha, silent)
+				else
+					Colorpicker:Set(v, nil, silent)
+				end
+			end
+
+			rec.Callback = emit
+			Window:_QueueInit(rec, emit)
+
+			return finish(Colorpicker, card, titleObj, descObj)
+		end
+
+		local function pickSub(subs, target)
+			if not subs then
+				return nil
+			end
+			if type(target) == "number" then
+				return subs[target]
+			elseif type(target) == "string" then
+				local wanted = string.lower(stripTags(target))
+				for _, sub in ipairs(subs) do
+					if string.lower(stripTags(sub.Title)) == wanted then
+						return sub
+					end
+				end
+			elseif type(target) == "table" then
+				return target
+			end
+			return nil
+		end
+
+		local function selectSub(context, target)
+			local sub = pickSub(context.Group and context.Group.Subs, target)
+			if sub then
+				sub:Select()
+			end
+			return sub
+		end
+
+		function Tab:SelectSubTab(target)
+			return selectSub(tabCtx, target)
+		end
+
 		function Tab:AddSubTab(cfg)
 			if type(cfg) == "string" then
 				cfg = {Title = cfg}
@@ -3842,10 +4376,14 @@ function Library:CreateWindow(config)
 			end)
 
 			local subContext = {Container = container, Items = SubTab.Items, Order = 0, Sub = SubTab}
-			for _, name in ipairs({"AddSection", "AddButton", "AddParagraph", "AddToggle", "AddSlider", "AddInput", "AddDropdown", "AddKeybind", "AddSubTab"}) do
+			for _, name in ipairs({"AddSection", "AddButton", "AddParagraph", "AddToggle", "AddSlider", "AddInput", "AddDropdown", "AddKeybind", "AddColorpicker", "AddSubTab"}) do
 				SubTab[name] = function(_, ...)
 					return withContext(subContext, Tab[name], Tab, ...)
 				end
+			end
+
+			SubTab.SelectSubTab = function(_, target)
+				return selectSub(subContext, target)
 			end
 
 			table.insert(group.Subs, SubTab)
