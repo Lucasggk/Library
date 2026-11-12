@@ -3670,6 +3670,39 @@ function Library:CreateWindow(config)
 				refreshText()
 			end
 
+			function Dropdown:Refresh(newOptions, keepSelection, silent)
+				local previous = keepSelection
+				if previous == nil then
+					previous = Dropdown:Get()
+				end
+				closePopup()
+				setOptions(newOptions)
+				if multi then
+					selected = {}
+					if type(previous) == "table" then
+						for key, value in pairs(previous) do
+							local name
+							if type(key) == "number" then
+								name = tostring(value)
+							elseif value == true then
+								name = tostring(key)
+							end
+							if name and table.find(options, name) then
+								selected[name] = true
+							end
+						end
+					end
+				else
+					selected = previous ~= nil and table.find(options, tostring(previous)) and tostring(previous) or nil
+				end
+				rebuild()
+				commit(rec, Dropdown:Get(), true)
+				if not silent then
+					fire(data.Callback, Dropdown:Get())
+				end
+				return Dropdown:Get()
+			end
+
 			hoverCard(card, overlay)
 
 			connect(overlay.MouseButton1Click, function()
